@@ -204,6 +204,129 @@ class RagworthOS:
             print(f"[!] Error loading local ledger: {e}")
             return []
 
+    def delete_ledger_entry(self, invoice_id):
+        """Deletes a ledger entry by invoice_id from either SQL DB or local CSV fallback."""
+        deleted = False
+        if self.is_sql_active:
+            try:
+                conn = self._get_sql_connection()
+                with conn.cursor() as cur:
+                    cur.execute("DELETE FROM ledger WHERE invoice_id = %s;", (invoice_id,))
+                    if cur.rowcount > 0:
+                        deleted = True
+                    conn.commit()
+                conn.close()
+                if deleted:
+                    print(f"[✔] Deleted cloud ledger entry {invoice_id}.")
+            except Exception as e:
+                print(f"[!] Cloud SQL Delete Ledger failed: {e}. Attempting local delete...")
+
+        # Always clean up local CSV as well (for local copy integrity/fallback parity)
+        if os.path.exists(self.ledger_file):
+            try:
+                updated_rows = []
+                headers = []
+                local_found = False
+                with open(self.ledger_file, "r", newline="", encoding="utf-8") as f:
+                    reader = csv.reader(f)
+                    try:
+                        headers = next(reader)
+                    except StopIteration:
+                        pass
+                    for row in reader:
+                        if len(row) > 1 and row[1] == invoice_id:
+                            local_found = True
+                            continue
+                        updated_rows.append(row)
+
+                if local_found:
+                    with open(self.ledger_file, "w", newline="", encoding="utf-8") as f:
+                        writer = csv.writer(f)
+                        if headers:
+                            writer.writerow(headers)
+                        writer.writerows(updated_rows)
+                    print(f"[✔] Deleted local ledger entry {invoice_id}.")
+                    deleted = True
+            except Exception as e:
+                print(f"[!] Error updating local ledger CSV for delete: {e}")
+
+        return deleted
+
+    def update_ledger_entry(self, invoice_id, client_name, amount_usd, service_type, notes, date=None, status=None):
+        """Updates a ledger entry by invoice_id in either SQL DB or local CSV fallback."""
+        updated = False
+        if self.is_sql_active:
+            try:
+                conn = self._get_sql_connection()
+                with conn.cursor() as cur:
+                    # Retrieve existing values to preserve if not passed
+                    cur.execute("SELECT date, status FROM ledger WHERE invoice_id = %s;", (invoice_id,))
+                    row = cur.fetchone()
+                    if row:
+                        db_date = date if date else row[0]
+                        db_status = status if status else row[1]
+                        
+                        cur.execute("""
+                            UPDATE ledger 
+                            SET client_name = %s, amount_usd = %s, service_type = %s, notes = %s, date = %s, status = %s
+                            WHERE invoice_id = %s;
+                        """, (client_name, amount_usd, service_type, notes, db_date, db_status, invoice_id))
+                        if cur.rowcount > 0:
+                            updated = True
+                        conn.commit()
+                conn.close()
+                if updated:
+                    print(f"[✔] Updated cloud ledger entry {invoice_id}.")
+            except Exception as e:
+                print(f"[!] Cloud SQL Update Ledger failed: {e}. Attempting local update...")
+
+        # Always sync or fallback to local CSV file
+        if os.path.exists(self.ledger_file):
+            try:
+                updated_rows = []
+                headers = []
+                local_found = False
+                with open(self.ledger_file, "r", newline="", encoding="utf-8") as f:
+                    reader = csv.reader(f)
+                    try:
+                        headers = next(reader)
+                    except StopIteration:
+                        pass
+                    
+                    # Columns in ledger.csv:
+                    # 0: Date, 1: Invoice_ID, 2: Client_Name, 3: Service_Type, 4: Amount_USD, 5: Status, 6: Payment_Method, 7: Tax_ID, 8: Notes
+                    for row in reader:
+                        if len(row) > 1 and row[1] == invoice_id:
+                            local_found = True
+                            if len(row) > 8:
+                                # Date
+                                row[0] = date if date else row[0]
+                                # Client Name
+                                row[2] = client_name
+                                # Service Type
+                                row[3] = service_type
+                                # Amount_USD
+                                row[4] = f"{amount_usd:.2f}"
+                                # Status
+                                if status:
+                                    row[5] = status
+                                # Notes
+                                row[8] = notes
+                        updated_rows.append(row)
+
+                if local_found:
+                    with open(self.ledger_file, "w", newline="", encoding="utf-8") as f:
+                        writer = csv.writer(f)
+                        if headers:
+                            writer.writerow(headers)
+                        writer.writerows(updated_rows)
+                    print(f"[✔] Updated local ledger entry {invoice_id}.")
+                    updated = True
+            except Exception as e:
+                print(f"[!] Error updating local ledger CSV for update: {e}")
+
+        return updated
+
     def add_scouted_leads(self, new_leads):
         if self.is_sql_active:
             try:

@@ -135,6 +135,7 @@ function subscribeFirebaseData() {
         let totalRev = 0.0;
         snapshot.forEach(doc => {
             const data = doc.data();
+            data._docId = doc.id; // Map doc ID for edits/deletes
             list.push(data);
             totalRev += parseFloat(data.Amount_USD || 0.0);
         });
@@ -215,7 +216,7 @@ function populateDashboard() {
     ledgerBody.innerHTML = "";
     
     if (ledger.length === 0) {
-        ledgerBody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted);">No payments recorded.</td></tr>`;
+        ledgerBody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: var(--text-muted);">No payments recorded.</td></tr>`;
     } else {
         ledger.forEach(entry => {
             const tr = document.createElement("tr");
@@ -228,6 +229,10 @@ function populateDashboard() {
                 <td><span class="badge badge-paid">${entry.Status}</span></td>
                 <td>${entry.Payment_Method}</td>
                 <td style="color: var(--text-muted); font-size: 0.75rem;">${entry.Notes || 'None'}</td>
+                <td style="white-space: nowrap; text-align: right;">
+                    <button class="action-btn edit-btn" onclick="openEditModal('${entry.Invoice_ID}')" title="Edit Entry"><i class="fas fa-pencil-alt"></i></button>
+                    <button class="action-btn delete-btn" onclick="deleteEntry('${entry.Invoice_ID}')" title="Delete Entry"><i class="fas fa-trash-alt"></i></button>
+                </td>
             `;
             ledgerBody.appendChild(tr);
         });
@@ -517,4 +522,190 @@ function downloadLedgerCSV() {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+}
+
+// ==============================================
+// LEDGER MANAGEMENT (EDIT & DELETE PROTOCOLS)
+// ==============================================
+
+// Open Edit Modal with Pre-populated Data
+function openEditModal(invoiceId) {
+    if (!dashboardData || !dashboardData.ledger) return;
+    
+    const entry = dashboardData.ledger.find(e => e.Invoice_ID === invoiceId);
+    if (!entry) {
+        alert("Ledger entry not found.");
+        return;
+    }
+    
+    document.getElementById("edit-invoice-id").value = entry.Invoice_ID;
+    
+    // Format Date for native input type="date" (YYYY-MM-DD)
+    let dateVal = entry.Date;
+    if (dateVal) {
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dateVal)) {
+            document.getElementById("edit-date").value = dateVal;
+        } else {
+            try {
+                const parsed = new Date(dateVal);
+                if (!isNaN(parsed.getTime())) {
+                    document.getElementById("edit-date").value = parsed.toISOString().slice(0, 10);
+                }
+            } catch (e) {
+                document.getElementById("edit-date").value = new Date().toISOString().slice(0, 10);
+            }
+        }
+    } else {
+        document.getElementById("edit-date").value = new Date().toISOString().slice(0, 10);
+    }
+    
+    document.getElementById("edit-client").value = entry.Client_Name || "";
+    document.getElementById("edit-service").value = entry.Service_Type || entry.Service_Provided || "";
+    document.getElementById("edit-amount").value = entry.Amount_USD || "";
+    
+    const statusVal = entry.Status || "Paid";
+    document.getElementById("edit-status").value = statusVal;
+    document.getElementById("edit-notes").value = entry.Notes || "";
+    
+    // Trigger modal show (adds active class for transition)
+    document.getElementById("edit-ledger-modal").classList.add("active");
+}
+
+// Close Edit Modal
+function closeEditModal() {
+    document.getElementById("edit-ledger-modal").classList.remove("active");
+}
+
+// Save Changes to either Firebase Firestore or FastAPI backend
+async function saveLedgerEdit() {
+    const invoiceId = document.getElementById("edit-invoice-id").value;
+    const date = document.getElementById("edit-date").value;
+    const client = document.getElementById("edit-client").value.trim();
+    const service = document.getElementById("edit-service").value.trim();
+    const amount = parseFloat(document.getElementById("edit-amount").value);
+    const statusVal = document.getElementById("edit-status").value;
+    const notes = document.getElementById("edit-notes").value.trim();
+    
+    if (!client || isNaN(amount) || !service || !date) {
+        alert("Please specify Date, Client Name, Service, and Amount.");
+        return;
+    }
+    
+    // 1. Firebase direct sync if active
+    if (db && typeof USE_FIREBASE !== 'undefined' && USE_FIREBASE) {
+        try {
+            const docId = await findFirestoreDocIdByInvoice(invoiceId);
+            if (docId) {
+                await db.collection("ledger").doc(docId).update({
+                    Date: date,
+                    Client_Name: client,
+                    Service_Type: service,
+                    Amount_USD: amount.toFixed(2),
+                    Status: statusVal,
+                    Notes: notes
+                });
+                closeEditModal();
+                return;
+            } else {
+                alert("Firestore document for this invoice not found.");
+                return;
+            }
+        } catch (e) {
+            alert("Firebase update failed: " + e.message);
+            return;
+        }
+    }
+    
+    // 2. Local/Cloud SQL FastAPI API Endpoint
+    try {
+        const response = await fetch(`/api/ledger/${invoiceId}`, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${sessionToken}`
+            },
+            body: JSON.stringify({
+                client: client,
+                amount: amount,
+                service: service,
+                notes: notes,
+                date: date,
+                status: statusVal
+            })
+        });
+        
+        if (response.ok) {
+            closeEditModal();
+            fetchDashboardData();
+        } else {
+            const err = await response.json();
+            alert(`Failed to save changes: ${err.detail}`);
+        }
+    } catch (e) {
+        alert("Error saving edit. Server is offline.");
+    }
+}
+
+// Delete Entry
+async function deleteEntry(invoiceId) {
+    if (!confirm(`Are you sure you want to permanently delete Ledger Entry ${invoiceId}?`)) {
+        return;
+    }
+    
+    // 1. Firebase direct delete if active
+    if (db && typeof USE_FIREBASE !== 'undefined' && USE_FIREBASE) {
+        try {
+            const docId = await findFirestoreDocIdByInvoice(invoiceId);
+            if (docId) {
+                await db.collection("ledger").doc(docId).delete();
+                return;
+            } else {
+                alert("Firestore document for this invoice not found.");
+                return;
+            }
+        } catch (e) {
+            alert("Firebase delete failed: " + e.message);
+            return;
+        }
+    }
+    
+    // 2. Local/Cloud SQL FastAPI API Endpoint
+    try {
+        const response = await fetch(`/api/ledger/${invoiceId}`, {
+            method: "DELETE",
+            headers: {
+                "Authorization": `Bearer ${sessionToken}`
+            }
+        });
+        
+        if (response.ok) {
+            fetchDashboardData();
+        } else {
+            const err = await response.json();
+            alert(`Failed to delete: ${err.detail}`);
+        }
+    } catch (e) {
+        alert("Error deleting entry. Server is offline.");
+    }
+}
+
+// Helper to query firestore doc ID by Invoice ID if no direct binding is found
+async function findFirestoreDocIdByInvoice(invoiceId) {
+    if (!db) return null;
+    
+    // Check state first to save API roundtrips
+    if (dashboardData && dashboardData.ledger) {
+        const entry = dashboardData.ledger.find(e => e.Invoice_ID === invoiceId);
+        if (entry && entry._docId) return entry._docId;
+    }
+    
+    try {
+        const q = await db.collection("ledger").where("Invoice_ID", "==", invoiceId).get();
+        if (!q.empty) {
+            return q.docs[0].id;
+        }
+    } catch (e) {
+        console.error("Error querying Firestore: ", e);
+    }
+    return null;
 }

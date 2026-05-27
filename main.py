@@ -5,6 +5,7 @@ import csv
 from datetime import datetime
 from typing import Optional, List
 from fastapi import FastAPI, HTTPException, Header, Depends, BackgroundTasks, status
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import HTMLResponse, JSONResponse
 from pydantic import BaseModel
@@ -19,6 +20,15 @@ app = FastAPI(
     title="Ragworth OS Server",
     description="24/7 Security and Back-Office API for Ragon Co Tech Wing.",
     version="1.0.0"
+)
+
+# Enable CORS for secure cross-origin dashboard requests
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"], # Supports GitHub Pages, Firebase, Vercel, and Custom Domains
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # Initialize RAG OS
@@ -37,6 +47,14 @@ class RevenueRequest(BaseModel):
     amount: float
     service: str
     notes: Optional[str] = ""
+
+class LedgerUpdateRequest(BaseModel):
+    client: str
+    amount: float
+    service: str
+    notes: Optional[str] = ""
+    date: Optional[str] = None
+    status: Optional[str] = "Paid"
 
 class ScoutRequest(BaseModel):
     niche: Optional[str] = None
@@ -107,6 +125,50 @@ def log_revenue(payload: RevenueRequest, authorized: bool = Depends(verify_token
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to record revenue: {str(e)}"
+        )
+
+@app.put("/api/ledger/{invoice_id}")
+def update_ledger_entry(invoice_id: str, payload: LedgerUpdateRequest, authorized: bool = Depends(verify_token)):
+    try:
+        success = rag_os.update_ledger_entry(
+            invoice_id=invoice_id,
+            client_name=payload.client,
+            amount_usd=payload.amount,
+            service_type=payload.service,
+            notes=payload.notes,
+            date=payload.date,
+            status=payload.status
+        )
+        if not success:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Ledger entry with Invoice ID {invoice_id} not found."
+            )
+        return {"success": True, "message": f"Ledger entry {invoice_id} successfully updated."}
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to update ledger entry: {str(e)}"
+        )
+
+@app.delete("/api/ledger/{invoice_id}")
+def delete_ledger_entry(invoice_id: str, authorized: bool = Depends(verify_token)):
+    try:
+        success = rag_os.delete_ledger_entry(invoice_id)
+        if not success:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Ledger entry with Invoice ID {invoice_id} not found."
+            )
+        return {"success": True, "message": f"Ledger entry {invoice_id} successfully deleted."}
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to delete ledger entry: {str(e)}"
         )
 
 @app.post("/api/scout/omniscale")

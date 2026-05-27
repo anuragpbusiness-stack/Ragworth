@@ -219,6 +219,7 @@
                                 <th>Status</th>
                                 <th>Method</th>
                                 <th>Notes</th>
+                                <th style="text-align: right;">Actions</th>
                             </tr>
                         </thead>
                         <tbody id="ledger-table-body">
@@ -332,6 +333,58 @@
                     <p style="font-weight: bold; margin-bottom: 0.3rem;">Terms of Business:</p>
                     <p>Standard payment terms are net-30 upon receipt. All architecture remains structural property of Ragon Co until receipt of total cash remittance. Standard SLA and NDA protocols apply.</p>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Luxury Edit Ledger Entry Modal -->
+    <div id="edit-ledger-modal" class="luxury-modal-overlay">
+        <div class="luxury-modal">
+            <div class="luxury-modal-header">
+                <h3 class="luxury-modal-title">Edit Ledger Entry</h3>
+                <button class="luxury-modal-close" onclick="closeEditModal()"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Invoice ID</label>
+                <input type="text" id="edit-invoice-id" class="form-control" disabled style="opacity: 0.5; font-family: 'Courier New', monospace;">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label" for="edit-date">Date</label>
+                    <input type="date" id="edit-date" class="form-control">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="edit-client">Client Name</label>
+                    <input type="text" id="edit-client" class="form-control" placeholder="Client Name">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label" for="edit-service">Service Provided</label>
+                    <input type="text" id="edit-service" class="form-control" placeholder="Service Provided">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="edit-amount">Amount (USD)</label>
+                    <input type="number" id="edit-amount" class="form-control" placeholder="Amount (USD)" step="0.01">
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label" for="edit-status">Status</label>
+                    <select id="edit-status" class="form-control">
+                        <option value="Paid">Paid</option>
+                        <option value="Pending">Pending</option>
+                        <option value="Cancelled">Cancelled</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="edit-notes">Notes</label>
+                    <input type="text" id="edit-notes" class="form-control" placeholder="Notes">
+                </div>
+            </div>
+            <div style="display: flex; gap: 1rem; margin-top: 1.5rem; justify-content: flex-end;">
+                <button class="btn" onclick="closeEditModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveLedgerEdit()"><i class="fas fa-save"></i> Save Changes</button>
             </div>
         </div>
     </div>
