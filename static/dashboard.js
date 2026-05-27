@@ -764,10 +764,12 @@ async function dispatchOmniIntelligence() {
 
         if (response.ok && data.success) {
             const leads = data.scouted_leads || [];
-            logTerminal(`╚══ DISPATCH COMPLETE — ${leads.length} leads enriched · ${data.new_leads_added || 0} new in pipeline ══╝`, "success");
+            const added = data.new_leads_added || 0;
+            logTerminal(`╚══ DISPATCH COMPLETE — ${leads.length} leads enriched · ${added} new in pipeline ══╝`, "success");
             updatePipelineStats(data.pipeline_stats);
-            // Switch to active view and render
             loadPipelineView("active");
+            // Show follow-up reminder banner
+            if (added > 0) showFollowUpReminder(added);
         } else {
             logTerminal(`✖ ERROR: ${data.detail || "Dispatch failed."}`, "warning");
         }
@@ -777,6 +779,34 @@ async function dispatchOmniIntelligence() {
         btn.disabled = false;
         btn.innerHTML = `<i class="fas fa-satellite-dish"></i>&nbsp; DISPATCH OMNI INTELLIGENCE`;
     }
+}
+
+// Follow-up reminder banner
+function showFollowUpReminder(count) {
+    let existing = document.getElementById("followup-reminder");
+    if (existing) existing.remove();
+    const banner = document.createElement("div");
+    banner.id = "followup-reminder";
+    banner.className = "followup-reminder-banner";
+    banner.innerHTML = `
+        <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;">
+            <span style="font-size:1.1rem;">🔔</span>
+            <span><strong>${count} new lead${count > 1 ? 's' : ''} added!</strong> Don't forget to follow up — consistency is what converts.</span>
+            <button class="reminder-followup-btn" onclick="loadPipelineView('followup');document.getElementById('tab-scout').scrollIntoView({behavior:'smooth'});this.closest('#followup-reminder').remove();">
+                <i class="fas fa-bookmark"></i> View Follow Up List
+            </button>
+            <button class="reminder-close-btn" onclick="this.closest('#followup-reminder').remove();" title="Dismiss">✕</button>
+        </div>
+    `;
+    // Insert below the terminal section
+    const terminal = document.getElementById("terminal-section");
+    if (terminal && terminal.parentNode) {
+        terminal.parentNode.insertBefore(banner, terminal.nextSibling);
+    } else {
+        document.querySelector("#tab-scout").prepend(banner);
+    }
+    // Auto-dismiss after 30s
+    setTimeout(() => { if (banner.parentNode) banner.remove(); }, 30000);
 }
 
 // Load a pipeline stage view (active / followup / clients)
@@ -841,12 +871,21 @@ function renderLeadCards(leads, stage) {
         const adSignal = lead.recent_ad_signal
             ? `<div class="lead-ad-signal">📡 ${lead.recent_ad_signal}</div>` : "";
 
+        // Pitch angle — the exact opening line to use on the call
+        const pitchAngle = lead.pitch_angle
+            ? `<div class="lead-pitch-angle"><span class="pitch-label">📞 PITCH ANGLE</span><span class="pitch-text">${lead.pitch_angle}</span></div>` : "";
+
         const sources = Array.isArray(lead.sources) ? lead.sources : [];
-        const sourceLinks = sources.slice(0, 4).map(src =>
-            `<a href="${src.url}" target="_blank" class="source-link" title="${src.label}">
-                <i class="fas fa-external-link-alt"></i> ${src.label.substring(0, 30)}
+        const sourceLinks = sources.slice(0, 5).map(src =>
+            `<a href="${src.url || '#'}" target="_blank" class="source-link" title="${src.label}">
+                <i class="fas fa-external-link-alt"></i> ${src.label.substring(0, 32)}
             </a>`
         ).join("");
+
+        const signalCount = lead.signal_types_hit || 0;
+        const signalBar = signalCount > 0
+            ? `<div class="signal-bar"><span class="signal-bar-label">SIGNAL STRENGTH</span>${[1,2,3,4,5].map(i => `<span class="signal-dot ${i <= signalCount ? 'active' : ''}"></span>`).join('')}</div>`
+            : "";
 
         const contactSection = lead.contact_name && lead.contact_name !== "Decision Maker"
             ? `<div class="lead-contact">
@@ -855,7 +894,7 @@ function renderLeadCards(leads, stage) {
                 <div class="contact-email"><i class="fas fa-envelope"></i> ${lead.contact_email || ""}</div>
                 ${lead.contact_linkedin ? `<a href="${lead.contact_linkedin}" target="_blank" class="contact-linkedin"><i class="fab fa-linkedin"></i> LinkedIn Profile</a>` : ""}
                </div>`
-            : `<div class="lead-contact muted"><i class="fas fa-user-circle"></i> Contact triangulation incomplete</div>`;
+            : `<div class="lead-contact muted"><i class="fas fa-user-circle"></i> Contact triangulation in progress</div>`;
 
         // Action buttons depending on current stage
         let actionBtns = "";
@@ -867,7 +906,7 @@ function renderLeadCards(leads, stage) {
             `;
         } else if (stage === "followup") {
             actionBtns = `
-                <button class="action-btn btn-confirm"  onclick="leadAction('${lead.id}', 'confirm')"><i class="fas fa-check"></i> CONFIRMED</button>
+                <button class="action-btn btn-confirm"  onclick="leadAction('${lead.id}', 'confirm')"><i class="fas fa-user-check"></i> CLIENT</button>
                 <button class="action-btn btn-dismiss"  onclick="leadAction('${lead.id}', 'dismiss')">NOT NEEDED</button>
             `;
         } else if (stage === "clients") {
@@ -892,7 +931,9 @@ function renderLeadCards(leads, stage) {
                 </div>
             </div>
             ${contactSection}
+            ${signalBar}
             <div class="lead-services">${serviceChips || '<span class="service-chip">General AI Services</span>'}</div>
+            ${pitchAngle}
             ${adSignal}
             <div class="lead-sources">${sourceLinks || '<span style="color:var(--text-muted);font-size:0.65rem;">No sources recorded</span>'}</div>
             <div class="lead-actions">${actionBtns}</div>

@@ -1007,3 +1007,95 @@ textarea.form-control {
     background: rgba(109,200,122,0.1);
     border-color: #6dc87a;
 }
+
+/* -- Follow-Up Reminder Banner --------------------------------------------- */
+.followup-reminder-banner {
+    margin: 1rem 0;
+    padding: 0.9rem 1.2rem;
+    background: linear-gradient(135deg, rgba(201,168,76,0.12) 0%, rgba(224,160,92,0.08) 100%);
+    border: 1px solid rgba(201,168,76,0.45);
+    border-left: 4px solid var(--accent);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 0.78rem;
+    animation: bannerPulse 2s ease-in-out infinite alternate;
+}
+@keyframes bannerPulse {
+    from { box-shadow: 0 0 0 rgba(201,168,76,0); }
+    to   { box-shadow: 0 0 18px rgba(201,168,76,0.25); }
+}
+.reminder-followup-btn {
+    padding: 0.4rem 0.9rem;
+    background: var(--accent);
+    color: #000;
+    border: none;
+    border-radius: 5px;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: opacity 0.2s;
+    white-space: nowrap;
+}
+.reminder-followup-btn:hover { opacity: 0.85; }
+.reminder-close-btn {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    cursor: pointer;
+    padding: 0.2rem 0.4rem;
+    margin-left: auto;
+    transition: color 0.2s;
+}
+.reminder-close-btn:hover { color: var(--text-primary); }
+
+/* -- Signal Strength Bar --------------------------------------------------- */
+.signal-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+.signal-bar-label {
+    font-family: var(--font-mono);
+    font-size: 0.58rem;
+    letter-spacing: 0.07em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+.signal-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--border);
+    transition: background 0.2s;
+}
+.signal-dot.active { background: var(--accent); box-shadow: 0 0 5px rgba(201,168,76,0.6); }
+
+/* -- Pitch Angle Box ------------------------------------------------------- */
+.lead-pitch-angle {
+    background: rgba(201,168,76,0.06);
+    border: 1px dashed rgba(201,168,76,0.35);
+    border-radius: 6px;
+    padding: 0.5rem 0.7rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+.pitch-label {
+    font-family: var(--font-mono);
+    font-size: 0.58rem;
+    letter-spacing: 0.1em;
+    color: var(--accent);
+    text-transform: uppercase;
+    font-weight: 700;
+}
+.pitch-text {
+    font-size: 0.7rem;
+    color: var(--text-primary);
+    line-height: 1.5;
+    font-style: italic;
+}
