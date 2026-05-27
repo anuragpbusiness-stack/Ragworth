@@ -1022,3 +1022,73 @@ async function sendHermesCommand() {
         procLine.innerText = `[!] OFFLINE. Local AI Core stand-alone node running. type "/status" locally.`;
     }
 }
+
+// ==============================================
+// INVOICE NINJA CLOUD INTEGRATION PROTOCOLS
+// ==============================================
+
+async function syncToInvoiceNinja() {
+    const client = document.getElementById("inv-client").value.trim() || "Sterling & Associates Law";
+    const address = document.getElementById("inv-address").value.trim() || "London, United Kingdom";
+    const service = document.getElementById("inv-service").value.trim() || "Agentic Compliance Workflow Setup & CRM Integration Services";
+    const amountVal = parseFloat(document.getElementById("inv-amount").value) || 15000.00;
+
+    const btn = document.getElementById("ninja-sync-btn");
+    const statusEl = document.getElementById("ninja-sync-status");
+    
+    // UI Loading state
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Syncing...`;
+    
+    statusEl.style.display = "block";
+    statusEl.className = "terminal-line info";
+    statusEl.style.color = "#8D7859"; // Bronze style
+    statusEl.innerHTML = `[${new Date().toLocaleTimeString()}] Authenticating with Invoice Ninja cloud... resolving client profile...`;
+    
+    try {
+        const response = await fetch("/api/invoice-ninja", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${sessionToken}`
+            },
+            body: JSON.stringify({
+                client: client,
+                address: address,
+                service: service,
+                amount: amountVal
+            })
+        });
+        
+        const resData = await response.json();
+        
+        if (response.ok && resData.success) {
+            statusEl.className = "terminal-line success";
+            statusEl.style.color = "#6F6961"; // Soft green
+            statusEl.innerHTML = `
+                <i class="fas fa-check-circle" style="margin-right: 0.5rem; color: #6F6961;"></i> 
+                <strong>SUCCESS:</strong> Invoice created successfully on Invoice Ninja! <br>
+                <a href="${resData.invoice_url}" target="_blank" style="color: var(--text-gold); text-decoration: underline; display: inline-block; margin-top: 0.5rem; font-weight: bold;">
+                    <i class="fas fa-external-link-alt" style="margin-right: 0.3rem;"></i> View Invoice on Invoice Ninja →
+                </a>
+            `;
+        } else {
+            statusEl.className = "terminal-line warning";
+            statusEl.style.color = "#8D7859"; // Bronze
+            statusEl.innerHTML = `
+                <i class="fas fa-exclamation-triangle" style="margin-right: 0.5rem; color: var(--accent);"></i>
+                <strong>INTEGRATION ALERT:</strong> ${resData.detail || "Sync failed."}
+            `;
+        }
+    } catch (e) {
+        statusEl.className = "terminal-line warning";
+        statusEl.style.color = "#8D7859";
+        statusEl.innerHTML = `
+            <i class="fas fa-exclamation-triangle" style="margin-right: 0.5rem; color: var(--accent);"></i>
+            <strong>CONNECTION OFFLINE:</strong> Could not connect to local back-office API server.
+        `;
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fas fa-cloud-upload-alt"></i> Sync to Invoice Ninja`;
+    }
+}

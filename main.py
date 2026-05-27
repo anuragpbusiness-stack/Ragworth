@@ -15,6 +15,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "scripts"))
 from ragworth_os import RagworthOS
 from ragworth_omniscale import OmniScale
 from ragworth_omniscout import OmniScout
+from invoice_ninja import InvoiceNinjaConnector
 
 app = FastAPI(
     title="Ragworth OS Server",
@@ -77,6 +78,12 @@ class EmployeeUpdateRequest(BaseModel):
 
 class HermesCommandRequest(BaseModel):
     command: str
+
+class InvoiceNinjaRequest(BaseModel):
+    client: str
+    address: str
+    service: str
+    amount: float
 
 # Security Middleware (Strict Executive Key validation)
 AUTH_KEY = "RAGON2026"
@@ -364,6 +371,28 @@ def process_hermes_command(payload: HermesCommandRequest, authorized: bool = Dep
         )
         
     return {"success": True, "response": text}
+
+@app.post("/api/invoice-ninja")
+def sync_invoice_ninja(payload: InvoiceNinjaRequest, authorized: bool = Depends(verify_token)):
+    connector = InvoiceNinjaConnector()
+    if not connector.is_configured:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invoice Ninja API integration is not configured. Please define INVOICE_NINJA_API_KEY and INVOICE_NINJA_URL in your server environment or .env file."
+        )
+    try:
+        invoice_url = connector.create_invoice(
+            client_name=payload.client,
+            client_address=payload.address,
+            service_desc=payload.service,
+            amount=payload.amount
+        )
+        return {"success": True, "invoice_url": invoice_url, "message": "Invoice successfully generated on Invoice Ninja!"}
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Invoice Ninja Sync failed: {str(e)}"
+        )
 
 # Serve Frontend static assets
 app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")
