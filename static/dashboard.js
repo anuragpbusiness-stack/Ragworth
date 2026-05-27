@@ -707,7 +707,19 @@ async function logNewRevenue() {
 // OMNI INTELLIGENCE ENGINE v3.0 — FRONTEND
 // ==============================================
 
+// Terminal log helper — appends a line to the scout terminal
+function logTerminal(message, type = "info") {
+    const terminal = document.getElementById("scout-terminal");
+    if (!terminal) return;
+    const div = document.createElement("div");
+    div.className = `terminal-line ${type}`;
+    div.innerText = `[${new Date().toLocaleTimeString()}] ${message}`;
+    terminal.appendChild(div);
+    terminal.scrollTop = terminal.scrollHeight;
+}
+
 let currentPipelineView = "active";
+
 
 function updatePipelineStats(stats) {
     if (!stats) return;
