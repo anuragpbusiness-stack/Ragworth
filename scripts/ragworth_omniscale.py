@@ -155,7 +155,7 @@ def get_city_local_hour(city_country: str) -> tuple:
 
     local_hour = local.hour
     weekday = local.weekday()  # 0=Monday, 6=Sunday
-    is_business = (9 <= local_hour < 18) and (weekday <= 4)
+    is_business = (12 <= local_hour < 19) and (weekday <= 4)
     return local_hour, weekday, is_business
 
 def format_local_time(city_country: str) -> str:
