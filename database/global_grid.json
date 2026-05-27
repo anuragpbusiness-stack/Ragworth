@@ -1,0 +1,16 @@
+{
+  "industries": [
+    "Commercial Law", "Maritime Logistics", "Boutique Real Estate", "Supply Chain Management",
+    "Independent Hotels", "Specialized Clinics", "HVAC Services", "Architecture Firms",
+    "Private Equity", "Manufacturing", "E-commerce Brands", "Wholesale Distributors",
+    "Custom Furniture", "Auto Dealerships", "Wealth Management", "Construction Firms",
+    "Dental Practices", "Freight Forwarders", "Renewable Energy", "Textile Exporters"
+  ],
+  "cities": [
+    "London, UK", "New York, NY", "Dubai, UAE", "Singapore", "Sydney, Australia",
+    "Mumbai, India", "Berlin, Germany", "Toronto, Canada", "San Francisco, CA",
+    "Hong Kong", "Chicago, IL", "Austin, TX", "Bangalore, India", "Tokyo, Japan",
+    "Paris, France", "Amsterdam, Netherlands", "Zurich, Switzerland", "Melbourne, AU",
+    "Dublin, Ireland", "Los Angeles, CA"
+  ]
+}

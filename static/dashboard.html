@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ragworth | CEO Command Center</title>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <!-- Premium Stylesheet -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <!-- Security Overlay Gate -->
+    <div id="login-overlay">
+        <div class="login-box">
+            <div class="login-logo">Ragworth</div>
+            <div class="login-sub">Executive Gateway</div>
+            <input type="password" id="pass-key" class="login-input" placeholder="ENTER ACCESS CREDENTIALS" onkeydown="if(event.key === 'Enter') attemptAuth()">
+            <button onclick="attemptAuth()" class="login-btn">Authorize Session</button>
+            <div id="auth-error" style="color: #8D7859; font-size: 0.7rem; text-transform: uppercase; margin-top: 1.5rem; letter-spacing: 0.1em; display: none;">[!] ACCESS DENIED. ATTEMPT LOGGED.</div>
+        </div>
+    </div>
+
+    <!-- Sidebar Menu navigation -->
+    <div class="sidebar">
+        <div class="brand-section">
+            <a href="index.html" class="brand-name">Ragworth</a>
+            <div class="brand-tag">Ragon Co Tech Wing</div>
+        </div>
+        
+        <ul class="nav-links">
+            <li class="nav-item active" onclick="switchTab('tab-dashboard', this)">
+                <span class="nav-link"><i class="fas fa-chart-line"></i> Dashboard</span>
+            </li>
+            <li class="nav-item" onclick="switchTab('tab-scout', this)">
+                <span class="nav-link"><i class="fas fa-users-cog"></i> Scout Engine</span>
+            </li>
+            <li class="nav-item" onclick="switchTab('tab-ledger', this)">
+                <span class="nav-link"><i class="fas fa-wallet"></i> Ledger & Cash</span>
+            </li>
+            <li class="nav-item" onclick="switchTab('tab-invoice', this)">
+                <span class="nav-link"><i class="fas fa-file-invoice-dollar"></i> Invoice Hub</span>
+            </li>
+        </ul>
+
+        <div class="sidebar-footer">
+            EST. 2026 | FORTUNE 500 PATH
+        </div>
+    </div>
+
+    <!-- Main Command Area -->
+    <div class="main-wrapper">
+        <div class="top-header">
+            <h1 id="tab-title-display">CEO Command Center</h1>
+            <div class="top-date" id="top-date-display">LOADING RAGWORTH OS...</div>
+        </div>
+
+        <!-- ============================================== -->
+        <!-- TAB 1: EXECUTIVE DASHBOARD -->
+        <!-- ============================================== -->
+        <div id="tab-dashboard" class="tab-content active">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <div class="stat-label">Total Revenue (MRR)</div>
+                    <div class="stat-value" id="kpi-revenue">$0.00</div>
+                    <div class="stat-subtext" id="kpi-revenue-inr">₹0.00 | Capitalization Active</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Active Leads Scouted</div>
+                    <div class="stat-value" id="kpi-leads">0</div>
+                    <div class="stat-subtext">US / UK Target Grid</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-label">Infrastructure Security</div>
+                    <div class="stat-value" id="kpi-security">100%</div>
+                    <div class="stat-subtext">Secure FastAPI & SSL Online</div>
+                </div>
+            </div>
+
+            <!-- Recent Opportunities -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">Priority Lead Pipeline</h2>
+                    <span style="font-size: 0.7rem; text-transform: uppercase; color: var(--text-muted);">Real-Time Sync</span>
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Company</th>
+                                <th>HQ / Region</th>
+                                <th>Need / Pain Point</th>
+                                <th>Confidence</th>
+                                <th>Potential Value</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dashboard-leads-table">
+                            <tr>
+                                <td colspan="6" style="text-align: center; color: var(--text-muted);">Synchronizing database pipelines...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================== -->
+        <!-- TAB 2: SCOUT ENGINE (OMNISCALE / OMNISCOUT) -->
+        <!-- ============================================== -->
+        <div id="tab-scout" class="tab-content">
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">Scouting Configuration Parameters</h2>
+                </div>
+                
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="scout-niche">Target Niche / Industry</label>
+                        <select id="scout-niche" class="form-control">
+                            <!-- Populated dynamically from global_grid.json -->
+                            <option value="">Choose Niche (Or Auto-Select)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="scout-location">Geographic Focus Region</label>
+                        <select id="scout-location" class="form-control">
+                            <!-- Populated dynamically from global_grid.json -->
+                            <option value="">Choose City (Or Auto-Select)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="scout-count">Lead Scrape Count</label>
+                        <input type="number" id="scout-count" class="form-control" value="5" min="1" max="20">
+                    </div>
+                    <div class="form-group" style="display: flex; align-items: flex-end; gap: 1rem;">
+                        <button onclick="dispatchScout('omniscale')" class="btn btn-primary" style="flex: 1;"><i class="fas fa-globe-americas"></i> Dispatch OmniScale</button>
+                        <button onclick="dispatchScout('omniscout')" class="btn" style="flex: 1;"><i class="fas fa-radar"></i> Dispatch OmniScout</button>
+                    </div>
+                </div>
+
+                <!-- Live Log Terminal -->
+                <div id="terminal-section" style="display: none;">
+                    <div class="form-label" style="margin-top: 2rem;">Real-Time Crawling Console Logs</div>
+                    <div class="terminal-window" id="scout-terminal">
+                        <div class="terminal-line success">SYSTEM STANDING BY. CONTEXT INITIALIZED.</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Newly Scouted Leads Display -->
+            <div class="panel" id="newly-scouted-panel" style="display: none;">
+                <div class="panel-header">
+                    <h2 class="panel-title">Discovered Target Signals</h2>
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Company</th>
+                                <th>Domain</th>
+                                <th>Needs Identified</th>
+                                <th>Debt Score</th>
+                                <th>Grid HQ</th>
+                            </tr>
+                        </thead>
+                        <tbody id="scouted-results-table">
+                            <!-- Generated on successful pulse -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================== -->
+        <!-- TAB 3: LEDGER AND CASH FLOW -->
+        <!-- ============================================== -->
+        <div id="tab-ledger" class="tab-content">
+            <div class="stats-grid">
+                <div class="stat-card" style="grid-column: span 1;">
+                    <div class="stat-label">Total Cash Inflow</div>
+                    <div class="stat-value" id="ledger-total-value">$0.00</div>
+                    <div class="stat-subtext">Verified Bank Entries</div>
+                </div>
+                <div class="stat-card" style="grid-column: span 2;">
+                    <!-- Log New Payment Panel -->
+                    <div class="stat-label">Record New Revenue Inflow</div>
+                    <div class="form-row" style="margin-top: 0.5rem;">
+                        <input type="text" id="log-client" class="form-control" placeholder="Client Name" style="padding: 0.5rem 0.8rem; font-size: 0.75rem;">
+                        <input type="number" id="log-amount" class="form-control" placeholder="Amount (USD)" style="padding: 0.5rem 0.8rem; font-size: 0.75rem;">
+                    </div>
+                    <div class="form-row" style="margin-top: 0.5rem;">
+                        <input type="text" id="log-service" class="form-control" placeholder="Service (e.g. AI Consulting)" style="padding: 0.5rem 0.8rem; font-size: 0.75rem;">
+                        <button onclick="logNewRevenue()" class="btn btn-primary" style="padding: 0.5rem; font-size: 0.7rem;"><i class="fas fa-plus"></i> Add Entry</button>
+                    </div>
+                    <div id="revenue-log-success" style="color: #6F6961; font-size: 0.65rem; text-transform: uppercase; margin-top: 0.5rem; display: none;">[✔] Transaction Recorded successfully.</div>
+                </div>
+            </div>
+
+            <!-- Ledger Database Grid -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">Confidential Financial Ledger</h2>
+                    <button onclick="downloadLedgerCSV()" class="btn"><i class="fas fa-file-csv"></i> Export CSV</button>
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Invoice ID</th>
+                                <th>Client Name</th>
+                                <th>Service Provided</th>
+                                <th>Amount (USD)</th>
+                                <th>Status</th>
+                                <th>Method</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ledger-table-body">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================== -->
+        <!-- TAB 4: INVOICE HUB -->
+        <!-- ============================================== -->
+        <div id="tab-invoice" class="tab-content">
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">Prestige Invoice Customizer</h2>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="inv-client">Recipient Client / Firm</label>
+                        <input type="text" id="inv-client" class="form-control" placeholder="e.g. BDB Pitmans" oninput="updateInvoicePreview()">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="inv-address">Client Corporate Address</label>
+                        <input type="text" id="inv-address" class="form-control" placeholder="e.g. London, United Kingdom" oninput="updateInvoicePreview()">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label class="form-label" for="inv-service">Deliverable / Infrastructure Architecture</label>
+                        <input type="text" id="inv-service" class="form-control" placeholder="e.g. Multi-Agent System (MAS) Setup" oninput="updateInvoicePreview()">
+                    </div>
+                    <div class="form-group">
+                        <label class="form-label" for="inv-amount">Invoice Amount (USD)</label>
+                        <input type="number" id="inv-amount" class="form-control" placeholder="e.g. 25000" oninput="updateInvoicePreview()">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <button onclick="window.print()" class="btn btn-primary"><i class="fas fa-print"></i> Generate & Print Invoice</button>
+                </div>
+            </div>
+
+            <!-- Invoice Preview (Printable Card) -->
+            <div class="invoice-container fade-in" id="invoice-preview-card">
+                <div class="invoice-header">
+                    <div>
+                        <div class="invoice-brand">RAGWORTH</div>
+                        <div class="invoice-brand-sub">Ragon Co Tech Conglomerate</div>
+                        <div style="font-size: 0.75rem; margin-top: 0.5rem; color: #444;">
+                            AI Strategy & Infrastructure Architecture<br>
+                            London — New York — New Delhi<br>
+                            Contact: billing@ragon.co
+                        </div>
+                    </div>
+                    <div class="invoice-meta">
+                        <strong>INVOICE</strong>
+                        <div>Invoice ID: <span id="preview-invoice-id">RAG-2026-XXXX</span></div>
+                        <div>Date: <span id="preview-invoice-date">27 May 2026</span></div>
+                        <div>Status: <span style="font-weight: bold; color: #444;">DUE UPON RECEIPT</span></div>
+                    </div>
+                </div>
+
+                <div class="invoice-details">
+                    <div>
+                        <h3>BILLED TO:</h3>
+                        <div id="preview-client-name" style="font-weight: bold;">Sterling & Associates Law</div>
+                        <div id="preview-client-address">London, United Kingdom</div>
+                    </div>
+                    <div>
+                        <h3>REMIT PAYMENT TO:</h3>
+                        <div style="font-weight: bold;">Ragon Co. Limited</div>
+                        <div>HSBC Private Banking, London Branch</div>
+                        <div>SWIFT/IBAN Details: INVOICING SECURE NODE</div>
+                    </div>
+                </div>
+
+                <table class="invoice-table">
+                    <thead>
+                        <tr>
+                            <th style="text-align: left; background-color: #eee;">DESCRIPTION OF DELIVERABLE ARCHITECTURE</th>
+                            <th style="text-align: right; background-color: #eee; width: 150px;">TOTAL (USD)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td id="preview-service-desc">Agentic Compliance Workflow Setup & CRM Integration Services</td>
+                            <td id="preview-service-cost" style="text-align: right; font-weight: bold;">$15,000.00</td>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <div class="invoice-totals">
+                    <table class="totals-table">
+                        <tr>
+                            <td>Subtotal:</td>
+                            <td id="preview-subtotal" style="text-align: right;">$15,000.00</td>
+                        </tr>
+                        <tr>
+                            <td>VAT / Service Taxes (0%):</td>
+                            <td style="text-align: right;">$0.00</td>
+                        </tr>
+                        <tr class="grand-total">
+                            <td>Grand Total (USD):</td>
+                            <td id="preview-grandtotal" style="text-align: right;">$15,000.00</td>
+                        </tr>
+                    </table>
+                </div>
+
+                <div class="invoice-terms">
+                    <p style="font-weight: bold; margin-bottom: 0.3rem;">Terms of Business:</p>
+                    <p>Standard payment terms are net-30 upon receipt. All architecture remains structural property of Ragon Co until receipt of total cash remittance. Standard SLA and NDA protocols apply.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Core Javascript Code -->
+    <script src="dashboard.js"></script>
+</body>
+</html>

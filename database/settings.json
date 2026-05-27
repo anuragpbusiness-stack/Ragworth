@@ -1,0 +1,8 @@
+{
+  "agency_name": "Ragworth",
+  "founder": "Anurag",
+  "focus_regions": ["USA", "UK"],
+  "currency": "USD",
+  "exchange_rate_inr_to_usd": 0.0125,
+  "last_backup": null
+}

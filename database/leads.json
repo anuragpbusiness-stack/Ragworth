@@ -1,0 +1,59 @@
+{
+  "target_niches": [
+    "Specialized Legal & Regulatory Compliance",
+    "High-End Logistics & Supply Chain",
+    "Boutique Private Equity & Wealth Management"
+  ],
+  "lead_list": [
+    {
+      "name": "BDB Pitmans",
+      "hq": "London, UK",
+      "niche": "Mid-Market Law",
+      "potential_value": "$25,000",
+      "status": "High Priority",
+      "pain_point": "Manual compliance cross-referencing",
+      "added_on": "2026-05-27"
+    },
+    {
+      "name": "EQT Group (Mid-Market Arm)",
+      "hq": "Stockholm/London",
+      "niche": "Private Equity",
+      "potential_value": "$50,000",
+      "status": "AI-Native Target",
+      "pain_point": "Automated deal sourcing & due diligence",
+      "added_on": "2026-05-27"
+    },
+    {
+      "name": "Travers Smith",
+      "hq": "London, UK",
+      "niche": "Legal AI Implementation",
+      "potential_value": "$30,000",
+      "status": "Target",
+      "pain_point": "Drafting automation & legacy data migration",
+      "added_on": "2026-05-27"
+    },
+    {
+      "name": "Peters & May",
+      "hq": "Southampton, UK",
+      "niche": "Maritime Logistics",
+      "potential_value": "$20,000",
+      "status": "Opportunity",
+      "pain_point": "Customs documentation bottlenecks",
+      "added_on": "2026-05-27"
+    },
+    {
+      "name": "Venture Global LNG (Ops Wing)",
+      "hq": "Arlington, USA",
+      "niche": "Energy Logistics",
+      "potential_value": "$40,000",
+      "status": "High Value",
+      "pain_point": "Real-time coordination of intermodal transport",
+      "added_on": "2026-05-27"
+    }
+  ],
+  "metadata": {
+    "last_updated": "2026-05-27",
+    "total_leads": 5,
+    "version": "1.1.0"
+  }
+}

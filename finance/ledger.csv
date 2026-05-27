@@ -1,0 +1,2 @@
+"Date","Invoice_ID","Client_Name","Service_Type","Amount_USD","Status","Payment_Method","Tax_ID","Notes"
+"2026-05-27","RAG-2026-000","Internal Seed","Capitalization","6.25","Paid","Cash","N/A","Initial capital of ₹500"
