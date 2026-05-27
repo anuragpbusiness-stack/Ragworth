@@ -1462,31 +1462,26 @@ async function sendHermesCommand() {
         
         if (response.ok) {
             const data = await response.json();
-            
-            // Premium typewriter/delay simulator
-            setTimeout(() => {
-                procLine.remove(); // Remove routing message
-                
-                const lines = data.response.split("\n");
-                lines.forEach((line, index) => {
-                    setTimeout(() => {
-                        const lineEl = document.createElement("div");
-                        lineEl.className = "terminal-line";
-                        
-                        // Parse status and highlights
-                        if (line.includes("ONLINE") || line.includes("VERIFIED") || line.includes("COMPLETE")) {
-                            lineEl.className = "terminal-line success";
-                            lineEl.style.color = "#6F6961";
-                        } else if (line.startsWith("•") || line.startsWith("CEO Instructed:")) {
-                            lineEl.className = "terminal-line info";
-                        }
-                        
-                        lineEl.innerText = line;
-                        terminal.appendChild(lineEl);
-                        terminal.scrollTop = terminal.scrollHeight;
-                    }, index * 150); // Muted micro-animation delays
-                });
-            }, 600);
+            procLine.remove();
+
+            const lines = data.response.split("\n");
+            lines.forEach((line, index) => {
+                setTimeout(() => {
+                    const lineEl = document.createElement("div");
+                    lineEl.className = "terminal-line";
+
+                    if (line.includes("ONLINE") || line.includes("VERIFIED") || line.includes("COMPLETE")) {
+                        lineEl.className = "terminal-line success";
+                        lineEl.style.color = "#6F6961";
+                    } else if (line.startsWith("•") || line.startsWith("CEO Instructed:") || line.startsWith("Hermes")) {
+                        lineEl.className = "terminal-line info";
+                    }
+
+                    lineEl.innerText = line;
+                    terminal.appendChild(lineEl);
+                    terminal.scrollTop = terminal.scrollHeight;
+                }, index * 30);
+            });
         } else {
             procLine.innerText = `[!] SECURE COM LINK ERROR: Directives rejected by master core.`;
         }
