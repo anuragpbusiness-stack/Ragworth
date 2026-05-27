@@ -7,7 +7,7 @@ from typing import Optional, List
 from fastapi import FastAPI, HTTPException, Header, Depends, BackgroundTasks, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse, FileResponse
 from pydantic import BaseModel
 
 # Add scripts directory to path to import helpers
@@ -15,7 +15,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "scripts"))
 from ragworth_os import RagworthOS
 from ragworth_omniscale import OmniScale
 from ragworth_omniscout import OmniScout
-from invoice_ninja import InvoiceNinjaConnector
+from invoice_pdf import RagworthInvoiceGenerator
 
 app = FastAPI(
     title="Ragworth OS Server",
@@ -79,7 +79,7 @@ class EmployeeUpdateRequest(BaseModel):
 class HermesCommandRequest(BaseModel):
     command: str
 
-class InvoiceNinjaRequest(BaseModel):
+class InvoiceGenerateRequest(BaseModel):
     client: str
     address: str
     service: str
@@ -372,27 +372,59 @@ def process_hermes_command(payload: HermesCommandRequest, authorized: bool = Dep
         
     return {"success": True, "response": text}
 
-@app.post("/api/invoice-ninja")
-def sync_invoice_ninja(payload: InvoiceNinjaRequest, authorized: bool = Depends(verify_token)):
-    connector = InvoiceNinjaConnector()
-    if not connector.is_configured:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invoice Ninja API integration is not configured. Please define INVOICE_NINJA_API_KEY and INVOICE_NINJA_URL in your server environment or .env file."
-        )
+@app.post("/api/invoice/generate")
+def generate_invoice(payload: InvoiceGenerateRequest, authorized: bool = Depends(verify_token)):
     try:
-        invoice_url = connector.create_invoice(
+        date_str = datetime.now().strftime("%Y-%m-%d")
+        invoice_id = f"RAG-{datetime.now().strftime('%Y%m%d%H%M')}"
+        
+        # Configure output folder
+        pdf_dir = os.path.join(rag_os.finance_path, "invoices")
+        generator = RagworthInvoiceGenerator(pdf_dir)
+        
+        # Compile PDF locally
+        generator.generate_pdf(
+            invoice_id=invoice_id,
+            date_str=date_str,
             client_name=payload.client,
             client_address=payload.address,
             service_desc=payload.service,
             amount=payload.amount
         )
-        return {"success": True, "invoice_url": invoice_url, "message": "Invoice successfully generated on Invoice Ninja!"}
+        
+        # Formally log revenue entry in database ledger
+        rag_os.log_revenue(
+            client_name=payload.client,
+            amount_usd=payload.amount,
+            service_type=payload.service,
+            notes=f"Auto-generated PDF Invoice {invoice_id}"
+        )
+        
+        return {
+            "success": True,
+            "invoice_id": invoice_id,
+            "pdf_url": f"/api/invoice/download/{invoice_id}.pdf",
+            "message": "Pristine ReportLab PDF invoice generated successfully!"
+        }
     except Exception as e:
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Invoice Ninja Sync failed: {str(e)}"
+            status_code=500,
+            detail=f"Local PDF generation failed: {str(e)}"
         )
+
+@app.get("/api/invoice/download/{filename}")
+def download_invoice(filename: str):
+    filepath = os.path.join(rag_os.finance_path, "invoices", filename)
+    if not os.path.exists(filepath):
+        raise HTTPException(
+            status_code=404,
+            detail=f"Invoice PDF file '{filename}' not found."
+        )
+    return FileResponse(
+        filepath,
+        media_type="application/pdf",
+        filename=filename
+    )
 
 # Serve Frontend static assets
 app.mount("/", StaticFiles(directory=static_dir, html=True), name="static")

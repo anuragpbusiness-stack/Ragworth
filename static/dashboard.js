@@ -1024,29 +1024,28 @@ async function sendHermesCommand() {
 }
 
 // ==============================================
-// INVOICE NINJA CLOUD INTEGRATION PROTOCOLS
+// SOVEREIGN PDF INVOICING ENGINE PROTOCOLS
 // ==============================================
 
-async function syncToInvoiceNinja() {
+async function generateLocalPDFInvoice() {
     const client = document.getElementById("inv-client").value.trim() || "Sterling & Associates Law";
     const address = document.getElementById("inv-address").value.trim() || "London, United Kingdom";
     const service = document.getElementById("inv-service").value.trim() || "Agentic Compliance Workflow Setup & CRM Integration Services";
     const amountVal = parseFloat(document.getElementById("inv-amount").value) || 15000.00;
 
-    const btn = document.getElementById("ninja-sync-btn");
+    const btn = document.getElementById("pdf-gen-btn");
     const statusEl = document.getElementById("ninja-sync-status");
     
-    // UI Loading state
     btn.disabled = true;
-    btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Syncing...`;
+    btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Compiling PDF...`;
     
     statusEl.style.display = "block";
     statusEl.className = "terminal-line info";
     statusEl.style.color = "#8D7859"; // Bronze style
-    statusEl.innerHTML = `[${new Date().toLocaleTimeString()}] Authenticating with Invoice Ninja cloud... resolving client profile...`;
+    statusEl.innerHTML = `[${new Date().toLocaleTimeString()}] Accessing local PDF Compiler... seeding parameters...`;
     
     try {
-        const response = await fetch("/api/invoice-ninja", {
+        const response = await fetch("/api/invoice/generate", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -1067,17 +1066,19 @@ async function syncToInvoiceNinja() {
             statusEl.style.color = "#6F6961"; // Soft green
             statusEl.innerHTML = `
                 <i class="fas fa-check-circle" style="margin-right: 0.5rem; color: #6F6961;"></i> 
-                <strong>SUCCESS:</strong> Invoice created successfully on Invoice Ninja! <br>
-                <a href="${resData.invoice_url}" target="_blank" style="color: var(--text-gold); text-decoration: underline; display: inline-block; margin-top: 0.5rem; font-weight: bold;">
-                    <i class="fas fa-external-link-alt" style="margin-right: 0.3rem;"></i> View Invoice on Invoice Ninja →
-                </a>
+                <strong>SUCCESS:</strong> Pristine PDF Invoice ${resData.invoice_id} generated locally! <br/>
+                <span style="font-size: 0.65rem; color: var(--text-muted);">Revenue entry has been automatically recorded in your Financial Ledger.</span>
             `;
+            // Instantly stream and preview compiled PDF in a new native browser tab
+            window.open(resData.pdf_url, '_blank');
+            // Refresh dashboard data to show the new ledger entry
+            fetchDashboardData();
         } else {
             statusEl.className = "terminal-line warning";
-            statusEl.style.color = "#8D7859"; // Bronze
+            statusEl.style.color = "#8D7859";
             statusEl.innerHTML = `
                 <i class="fas fa-exclamation-triangle" style="margin-right: 0.5rem; color: var(--accent);"></i>
-                <strong>INTEGRATION ALERT:</strong> ${resData.detail || "Sync failed."}
+                <strong>COMPILER FAILURE:</strong> ${resData.detail || "Verification failed."}
             `;
         }
     } catch (e) {
@@ -1089,6 +1090,6 @@ async function syncToInvoiceNinja() {
         `;
     } finally {
         btn.disabled = false;
-        btn.innerHTML = `<i class="fas fa-cloud-upload-alt"></i> Sync to Invoice Ninja`;
+        btn.innerHTML = `<i class="fas fa-file-pdf"></i> Compile & Generate PDF Invoice`;
     }
 }
