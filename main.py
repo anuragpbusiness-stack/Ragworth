@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import csv
+import requests
 from datetime import datetime
 from typing import Optional, List
 from fastapi import FastAPI, HTTPException, Header, Depends, BackgroundTasks, status
@@ -124,13 +125,39 @@ def get_dashboard_data(authorized: bool = Depends(verify_token)):
         with open(grid_file, "r", encoding="utf-8") as f:
             grid = json.load(f)
 
+    # Fetch live exchange rates from Open ER-API (USD-relative rates)
+    # Default fallbacks to guarantee 100% stability if offline
+    exchange_rates = {
+        "USD": 1.0,
+        "INR": 83.5,
+        "EUR": 0.92,
+        "GBP": 0.79,
+        "AED": 3.67,
+        "JPY": 155.0,
+        "CAD": 1.37,
+        "AUD": 1.50
+    }
+    
+    try:
+        resp = requests.get("https://open.er-api.com/v6/latest/USD", timeout=4)
+        if resp.status_code == 200:
+            api_data = resp.json()
+            if api_data.get("result") == "success" and "rates" in api_data:
+                # Merge fetched rates into our defaults
+                for curr, rate in api_data["rates"].items():
+                    exchange_rates[curr] = float(rate)
+                print("[OK] Fetched live exchange rates successfully.")
+    except Exception as e:
+        print(f"[!] Warning: Failed to fetch live exchange rates: {e}. Using cached fallbacks.")
+
     return {
         "success": True,
         "summary": summary,
         "leads": leads,
         "ledger": ledger,
         "employees": employees,
-        "grid": grid
+        "grid": grid,
+        "exchange_rates": exchange_rates
     }
 
 @app.post("/api/revenue")

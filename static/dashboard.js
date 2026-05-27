@@ -2,12 +2,81 @@
 let sessionToken = localStorage.getItem('ragworth_token') || "";
 let dashboardData = null;
 let db = null; // Firebase Firestore instance
+let currentCurrency = localStorage.getItem('ragworth_currency') || "USD";
+let globalRates = { "USD": 1.0, "INR": 83.5, "EUR": 0.92, "GBP": 0.79, "AED": 3.67, "JPY": 155.0, "CAD": 1.37, "AUD": 1.50 };
+
+// Dynamic Multi-Currency Conversion Helpers
+function convertCurrency(amountUsd, targetCurrency) {
+    const usdAmount = parseFloat(amountUsd || 0.0);
+    const rate = parseFloat(globalRates[targetCurrency] || 1.0);
+    return usdAmount * rate;
+}
+
+function getCurrencySymbol(currencyCode) {
+    const symbols = {
+        "USD": "$",
+        "INR": "₹",
+        "EUR": "€",
+        "GBP": "£",
+        "AED": "د.إ",
+        "JPY": "¥",
+        "CAD": "C$",
+        "AUD": "A$"
+    };
+    return symbols[currencyCode] || currencyCode;
+}
+
+function changeDisplayCurrency() {
+    const selector = document.getElementById("currency-selector");
+    if (selector) {
+        currentCurrency = selector.value;
+        localStorage.setItem('ragworth_currency', currentCurrency);
+        console.log(`[OK] Changed display currency to: ${currentCurrency}`);
+        populateDashboard();
+    }
+}
+
+function updateLogAmountHelper() {
+    const amountInput = document.getElementById("log-amount");
+    const helperEl = document.getElementById("log-amount-inr-helper");
+    if (!amountInput || !helperEl) return;
+    
+    const amountVal = parseFloat(amountInput.value);
+    if (isNaN(amountVal) || amountVal <= 0) {
+        helperEl.style.display = "none";
+        return;
+    }
+    
+    const converted = convertCurrency(amountVal, currentCurrency);
+    const symbol = getCurrencySymbol(currentCurrency);
+    helperEl.style.display = "block";
+    helperEl.innerText = `Converted Inflow: ${symbol}${converted.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+}
+
+function formatLeadPotential(valStr) {
+    if (!valStr) return "";
+    // Extract numeric digits
+    const matches = valStr.match(/\d+[,.\d]*/);
+    if (!matches) return valStr;
+    const numStr = matches[0].replace(/,/g, '');
+    const usdAmount = parseFloat(numStr);
+    if (isNaN(usdAmount)) return valStr;
+    const converted = convertCurrency(usdAmount, currentCurrency);
+    const symbol = getCurrencySymbol(currentCurrency);
+    return `${symbol}${converted.toLocaleString('en-US', { maximumFractionDigits: 0 })}+`;
+}
 
 // Initialize on load
 document.addEventListener("DOMContentLoaded", () => {
     // Set Header Date
     const options = { day: 'numeric', month: 'short', year: 'numeric' };
     document.getElementById("top-date-display").innerText = new Date().toLocaleDateString('en-US', options).toUpperCase() + " | EXECUTIVE SESSION";
+    
+    // Set currency selector state
+    const selector = document.getElementById("currency-selector");
+    if (selector) {
+        selector.value = currentCurrency;
+    }
     
     // Initialize Firebase if active
     if (typeof USE_FIREBASE !== 'undefined' && USE_FIREBASE) {
@@ -195,6 +264,9 @@ async function fetchDashboardData() {
         const resData = await response.json();
         if (resData.success) {
             dashboardData = resData;
+            if (resData.exchange_rates) {
+                globalRates = resData.exchange_rates;
+            }
             populateDashboard();
         }
     } catch (e) {
@@ -206,6 +278,13 @@ async function fetchDashboardData() {
 function populateDashboard() {
     if (!dashboardData) return;
     
+    // Update live ticker rate
+    const ticker = document.getElementById("live-rate-ticker");
+    if (ticker) {
+        const rate = parseFloat(globalRates[currentCurrency] || 1.0);
+        ticker.innerHTML = `<i class="fas fa-chart-line" style="margin-right: 0.25rem;"></i> USD/${currentCurrency}: ${rate.toFixed(4)}`;
+    }
+    
     const summary = dashboardData.summary;
     const leads = dashboardData.leads;
     const ledger = dashboardData.ledger;
@@ -213,13 +292,27 @@ function populateDashboard() {
     
     // 1. KPI Updates
     const totalRevenueUSD = parseFloat(summary.total_revenue || 0.0);
-    const exchangeRate = 80.0; // INR/USD standard
-    const totalRevenueINR = totalRevenueUSD * exchangeRate;
+    const convertedRevenue = convertCurrency(totalRevenueUSD, currentCurrency);
+    const displaySymbol = getCurrencySymbol(currentCurrency);
     
-    document.getElementById("kpi-revenue").innerText = `$${totalRevenueUSD.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
-    document.getElementById("kpi-revenue-inr").innerText = `₹${totalRevenueINR.toLocaleString('en-IN', { minimumFractionDigits: 2 })} | Capitalization Active`;
+    document.getElementById("kpi-revenue").innerText = `${displaySymbol}${convertedRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+    
+    // Subtext shows alternate secondary currency
+    if (currentCurrency === "USD") {
+        const inrEquivalent = convertCurrency(totalRevenueUSD, "INR");
+        document.getElementById("kpi-revenue-inr").innerText = `₹${inrEquivalent.toLocaleString('en-IN', { minimumFractionDigits: 2 })} | Capitalization Active`;
+    } else {
+        document.getElementById("kpi-revenue-inr").innerText = `$${totalRevenueUSD.toLocaleString('en-US', { minimumFractionDigits: 2 })} USD | Base standardized rate`;
+    }
+    
     document.getElementById("kpi-leads").innerText = summary.active_leads;
-    document.getElementById("ledger-total-value").innerText = `$${totalRevenueUSD.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+    document.getElementById("ledger-total-value").innerText = `${displaySymbol}${convertedRevenue.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+    
+    // Update Ledger dynamic header
+    const ledgerHeader = document.getElementById("ledger-amount-header");
+    if (ledgerHeader) {
+        ledgerHeader.innerText = `Amount (${currentCurrency})`;
+    }
     
     // 2. Dashboard Leads Table
     const tableBody = document.getElementById("dashboard-leads-table");
@@ -235,7 +328,7 @@ function populateDashboard() {
                 <td><i class="fas fa-map-marker-alt" style="margin-right: 0.4rem; font-size: 0.75rem; color: var(--text-muted);"></i> ${lead.hq}</td>
                 <td>${lead.pain_point || lead.niche}</td>
                 <td><i class="fas fa-star" style="color: var(--accent); font-size: 0.7rem; margin-right: 0.3rem;"></i> ${lead.confidence || '0.90'}</td>
-                <td style="font-weight: 600;">${lead.potential_value || '$10,000+'}</td>
+                <td style="font-weight: 600;">${formatLeadPotential(lead.potential_value || '$10,000+')}</td>
                 <td><span class="badge badge-priority">${lead.status || 'Active Target'}</span></td>
             `;
             tableBody.appendChild(tr);
@@ -256,7 +349,10 @@ function populateDashboard() {
                 <td style="font-family: 'Courier New', monospace; font-size: 0.75rem;">${entry.Invoice_ID}</td>
                 <td style="font-weight: 500;">${entry.Client_Name}</td>
                 <td>${entry.Service_Type}</td>
-                <td style="font-weight: 600; color: var(--text-gold);">$${parseFloat(entry.Amount_USD).toFixed(2)}</td>
+                <td style="font-weight: 600; color: var(--text-gold);">
+                    <div>${getCurrencySymbol(currentCurrency)}${convertCurrency(entry.Amount_USD, currentCurrency).toLocaleString('en-US', { minimumFractionDigits: 2 })}</div>
+                    ${currentCurrency !== "USD" ? `<div style="font-size: 0.65rem; color: var(--text-muted); font-weight: normal; margin-top: 0.1rem;">$${parseFloat(entry.Amount_USD).toFixed(2)} USD</div>` : ''}
+                </td>
                 <td><span class="badge badge-paid">${entry.Status}</span></td>
                 <td>${entry.Payment_Method}</td>
                 <td style="color: var(--text-muted); font-size: 0.75rem;">${entry.Notes || 'None'}</td>

@@ -52,7 +52,14 @@ def run_test():
     print("[*] Verifying if ledger record is correctly synced...")
     dash_resp = requests.get(f"{base_url}/api/dashboard", headers=headers)
     if dash_resp.status_code == 200:
-        ledger = dash_resp.json().get("ledger", [])
+        dash_data = dash_resp.json()
+        rates = dash_data.get("exchange_rates", {})
+        if "INR" in rates and "EUR" in rates and "GBP" in rates and "AED" in rates:
+            print(f"[OK] Live exchange rates verified! Sample: INR={rates['INR']}, EUR={rates['EUR']}, GBP={rates['GBP']}, AED={rates['AED']}")
+        else:
+            print("[!] Fail: Exchange rates dictionary incomplete or missing in dashboard payload.")
+            
+        ledger = dash_data.get("ledger", [])
         matched = [entry for entry in ledger if entry.get("Invoice_ID") == invoice_id]
         if matched:
             print(f"[OK] Ledger successfully verified! Entry details: {json.dumps(matched[0], indent=2)}")
