@@ -316,10 +316,9 @@ async function attemptAuth() {
 
 function successfulLogin() {
     const overlay = document.getElementById("login-overlay");
+    overlay.style.transition = "opacity 0.15s ease";
     overlay.style.opacity = 0;
-    setTimeout(() => {
-        overlay.style.display = "none";
-    }, 500);
+    setTimeout(() => { overlay.style.display = "none"; }, 150);
     startDashboardSync();
 }
 
@@ -662,7 +661,7 @@ async function logNewRevenue() {
             document.getElementById("log-client").value = "";
             document.getElementById("log-amount").value = "";
             document.getElementById("log-service").value = "";
-            setTimeout(() => { successEl.style.display = "none"; }, 3000);
+            setTimeout(() => { successEl.style.display = "none"; }, 2000);
             return; // Firebase listener will auto-update
         } catch (e) {
             alert("Firebase write failed: " + e.message);
@@ -692,7 +691,7 @@ async function logNewRevenue() {
             document.getElementById("log-amount").value = "";
             document.getElementById("log-service").value = "";
             
-            setTimeout(() => { successEl.style.display = "none"; }, 3000);
+            setTimeout(() => { successEl.style.display = "none"; }, 2000);
             fetchDashboardData();
         } else {
             const err = await response.json();
@@ -977,17 +976,17 @@ async function leadAction(leadId, action) {
             updatePipelineStats(data.stats);
             // Remove card with animation
             if (card) {
-                card.style.transform = "scale(0.95)";
-                card.style.transition = "all 0.3s ease";
+                card.style.transition = "all 0.15s ease";
+                card.style.transform = "scale(0.92)";
+                card.style.opacity = "0";
                 setTimeout(() => {
                     card.remove();
-                    // Check if grid is now empty
                     const grid = document.getElementById("lead-cards-grid");
                     if (grid && grid.children.length === 0) {
                         grid.style.display = "none";
                         document.getElementById("lead-cards-empty").style.display = "block";
                     }
-                }, 300);
+                }, 150);
             }
         } else {
             if (card) { card.style.opacity = "1"; card.style.pointerEvents = "auto"; }

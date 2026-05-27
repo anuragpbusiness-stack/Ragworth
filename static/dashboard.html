@@ -4,9 +4,20 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Ragworth | CEO Command Center</title>
-    <!-- FontAwesome Icons -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <!-- Premium Stylesheet -->
+
+    <!-- DNS Prefetch & Preconnect for all CDN domains (starts DNS resolution immediately) -->
+    <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
+    <link rel="dns-prefetch" href="https://cdnjs.cloudflare.com">
+    <link rel="preconnect" href="https://www.gstatic.com" crossorigin>
+    <link rel="dns-prefetch" href="https://www.gstatic.com">
+    <link rel="preconnect" href="https://fonts.googleapis.com" crossorigin>
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com">
+
+    <!-- FontAwesome: non-blocking load (media trick) -->
+    <link rel="preload" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" as="style" onload="this.onload=null;this.rel='stylesheet'">
+    <noscript><link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"></noscript>
+
+    <!-- Premium Stylesheet (local — loads instantly) -->
     <link rel="stylesheet" href="styles.css">
 </head>
 <body>
@@ -559,12 +570,12 @@
         </div>
     </div>
 
-    <!-- Firebase compatibility SDKs -->
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
-    <script src="firebase_config.js"></script>
+    <!-- Firebase compatibility SDKs (defer = parallel download, runs after HTML parsed) -->
+    <script defer src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
+    <script defer src="https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore-compat.js"></script>
+    <script defer src="firebase_config.js"></script>
 
-    <!-- Core Javascript Code -->
-    <script src="dashboard.js"></script>
+    <!-- Core Javascript (defer = non-blocking, guaranteed after DOM ready) -->
+    <script defer src="dashboard.js"></script>
 </body>
 </html>
