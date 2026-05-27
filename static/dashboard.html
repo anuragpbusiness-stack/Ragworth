@@ -39,6 +39,9 @@
             <li class="nav-item" onclick="switchTab('tab-ledger', this)">
                 <span class="nav-link"><i class="fas fa-wallet"></i> Ledger & Cash</span>
             </li>
+            <li class="nav-item" onclick="switchTab('tab-employees', this)">
+                <span class="nav-link"><i class="fas fa-network-wired"></i> Employees</span>
+            </li>
             <li class="nav-item" onclick="switchTab('tab-invoice', this)">
                 <span class="nav-link"><i class="fas fa-file-invoice-dollar"></i> Invoice Hub</span>
             </li>
@@ -231,6 +234,96 @@
         </div>
 
         <!-- ============================================== -->
+        <!-- TAB 5: EMPLOYEES & AI ASSISTANT HUB -->
+        <!-- ============================================== -->
+        <div id="tab-employees" class="tab-content">
+            <div class="form-row" style="grid-template-columns: 1fr 1.5fr; gap: 2rem; margin-bottom: 2.5rem; align-items: stretch;">
+                
+                <!-- Hermes AI Core Profile Card -->
+                <div class="stat-card" style="border: 1px solid var(--accent); padding: 2rem; display: flex; flex-direction: column; justify-content: space-between; min-height: 320px;">
+                    <div style="position: absolute; top: 1rem; right: 1rem;">
+                        <span style="font-size: 0.55rem; background-color: rgba(141, 120, 89, 0.15); color: var(--accent); border: 1px solid var(--accent); padding: 0.2rem 0.4rem; border-radius: 2px; text-transform: uppercase; letter-spacing: 0.1em; font-weight: bold;">
+                            <i class="fas fa-microchip heartbeat" style="margin-right: 0.2rem;"></i> ACTIVE NODE
+                        </span>
+                    </div>
+                    
+                    <div>
+                        <div style="font-family: 'Cinzel', serif; font-size: 1.6rem; letter-spacing: 0.15em; color: var(--text-gold); font-weight: 500; margin-bottom: 0.3rem;">HERMES</div>
+                        <div style="font-size: 0.65rem; text-transform: uppercase; color: var(--text-muted); letter-spacing: 0.15em; font-weight: 600; margin-bottom: 1.5rem;">Sovereign AI Core Assistant</div>
+                        
+                        <div style="margin-bottom: 1rem; display: flex; flex-direction: column; gap: 0.6rem;">
+                            <div style="font-size: 0.7rem; color: var(--text-muted); display: flex; justify-content: space-between;">
+                                <span>CLEARANCE LEVEL:</span>
+                                <span style="font-weight: 600; color: var(--text-gold);">FULL CONTROL (LEVEL 5)</span>
+                            </div>
+                            <div style="font-size: 0.7rem; color: var(--text-muted); display: flex; justify-content: space-between;">
+                                <span>SYSTEM STATUS:</span>
+                                <span style="font-weight: 600; color: #6F6961;"><i class="fas fa-circle" style="font-size: 0.5rem; margin-right: 0.3rem; vertical-align: middle;"></i> ONLINE</span>
+                            </div>
+                            <div style="font-size: 0.7rem; color: var(--text-muted); display: flex; justify-content: space-between;">
+                                <span>COMM PORT:</span>
+                                <span style="font-weight: 600; color: var(--text-muted); font-family: monospace;">node_hermes_secure</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="border-top: 1px solid var(--divider); padding-top: 1rem; font-size: 0.65rem; color: var(--text-muted); line-height: 1.4;">
+                        <i class="fas fa-shield-alt" style="margin-right: 0.4rem; color: var(--accent);"></i> AI Personal Assistant holding master server bypass nodes and automated lead/ledger control.
+                    </div>
+                </div>
+                
+                <!-- Hermes Interactive Executive Console Terminal -->
+                <div class="stat-card" style="padding: 1.5rem 2rem; display: flex; flex-direction: column; justify-content: space-between; border-left: 2px solid var(--accent); min-height: 320px;">
+                    <div>
+                        <div class="stat-label" style="display: flex; justify-content: space-between; align-items: center;">
+                            <span>Hermes Executive Terminal</span>
+                            <span style="font-family: monospace; font-size: 0.6rem; color: var(--accent);">link_secure:ceo_directive</span>
+                        </div>
+                        
+                        <!-- Mini terminal display -->
+                        <div class="hermes-terminal-body" id="hermes-terminal">
+                            <div class="terminal-line info">[09:20:00] DIRECT LINK ESTABLISHED WITH HERMES CO-PILOT.</div>
+                            <div class="terminal-line success">[09:20:01] TYPE /help AND PRESS ENTER FOR DIRECTIVES.</div>
+                        </div>
+                    </div>
+                    
+                    <div style="position: relative; margin-top: 0.8rem; display: flex; gap: 0.8rem; align-items: center;">
+                        <span style="color: var(--accent); font-family: monospace; font-weight: bold; font-size: 0.85rem;">CEO&gt;</span>
+                        <input type="text" id="hermes-cmd-input" class="form-control" placeholder="ENTER DIRECTIVE..." style="font-family: monospace; font-size: 0.75rem; background-color: rgba(0,0,0,0.3); border-color: var(--divider); color: var(--text-gold); flex: 1; padding: 0.4rem 0.8rem;" onkeydown="if(event.key === 'Enter') sendHermesCommand()">
+                        <button onclick="sendHermesCommand()" class="btn" style="padding: 0.4rem 1rem; font-size: 0.65rem;"><i class="fas fa-paper-plane" style="margin:0;"></i></button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Corporate Employees Registry Panel -->
+            <div class="panel">
+                <div class="panel-header">
+                    <h2 class="panel-title">Corporate Personnel Directory</h2>
+                    <button onclick="openAddEmployeeModal()" class="btn btn-primary"><i class="fas fa-user-plus"></i> Add Employee</button>
+                </div>
+                <div class="table-responsive">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Emp ID</th>
+                                <th>Name</th>
+                                <th>Corporate Role</th>
+                                <th>Clearance Node</th>
+                                <th>Registry Status</th>
+                                <th>Secure Email</th>
+                                <th>Joined Date</th>
+                                <th style="text-align: right;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="employees-table-body">
+                            <!-- Populated dynamically -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================== -->
         <!-- TAB 4: INVOICE HUB -->
         <!-- ============================================== -->
         <div id="tab-invoice" class="tab-content">
@@ -385,6 +478,55 @@
             <div style="display: flex; gap: 1rem; margin-top: 1.5rem; justify-content: flex-end;">
                 <button class="btn" onclick="closeEditModal()">Cancel</button>
                 <button class="btn btn-primary" onclick="saveLedgerEdit()"><i class="fas fa-save"></i> Save Changes</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Luxury Add/Edit Employee Modal -->
+    <div id="employee-modal" class="luxury-modal-overlay">
+        <div class="luxury-modal">
+            <div class="luxury-modal-header">
+                <h3 class="luxury-modal-title" id="emp-modal-title">Record New Employee</h3>
+                <button class="luxury-modal-close" onclick="closeEmployeeModal()"><i class="fas fa-times"></i></button>
+            </div>
+            <input type="hidden" id="edit-emp-id">
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label" for="emp-name">Employee Name</label>
+                    <input type="text" id="emp-name" class="form-control" placeholder="Full Name">
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="emp-role">Corporate Role</label>
+                    <input type="text" id="emp-role" class="form-control" placeholder="e.g. Lead Consultant">
+                </div>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="emp-email">Secure Corporate Email</label>
+                <input type="email" id="emp-email" class="form-control" placeholder="e.g. employee@ragon.co">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label class="form-label" for="emp-clearance">Clearance Level</label>
+                    <select id="emp-clearance" class="form-control">
+                        <option value="LEVEL 1 (VIEWER)">LEVEL 1 (VIEWER)</option>
+                        <option value="LEVEL 2 (OPERATOR)">LEVEL 2 (OPERATOR)</option>
+                        <option value="LEVEL 3 (MANAGER)">LEVEL 3 (MANAGER)</option>
+                        <option value="LEVEL 4 (ADMIN)">LEVEL 4 (ADMIN)</option>
+                        <option value="FULL CONTROL (LEVEL 5)" disabled>FULL CONTROL (LEVEL 5) - Hermes Only</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label class="form-label" for="emp-status">Registry Status</label>
+                    <select id="emp-status" class="form-control">
+                        <option value="Online">Online</option>
+                        <option value="Offline">Offline</option>
+                        <option value="On Leave">On Leave</option>
+                    </select>
+                </div>
+            </div>
+            <div style="display: flex; gap: 1rem; margin-top: 1.5rem; justify-content: flex-end;">
+                <button class="btn" onclick="closeEmployeeModal()">Cancel</button>
+                <button class="btn btn-primary" onclick="saveEmployee()"><i class="fas fa-save"></i> Save Registry</button>
             </div>
         </div>
     </div>

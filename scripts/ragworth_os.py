@@ -20,6 +20,7 @@ class RagworthOS:
         self.leads_file = os.path.join(self.db_path, "leads.json")
         self.ledger_file = os.path.join(self.finance_path, "ledger.csv")
         self.settings_file = os.path.join(self.db_path, "settings.json")
+        self.employees_file = os.path.join(self.db_path, "employees.json")
         
         # Determine database connection string (from environment)
         self.db_url = os.getenv("DATABASE_URL", "").strip()
@@ -85,6 +86,29 @@ class RagworthOS:
                     notes TEXT
                 );
             """)
+            
+            # 3. Employees Table
+            cur.execute("""
+                CREATE TABLE IF NOT EXISTS employees (
+                    id SERIAL PRIMARY KEY,
+                    emp_id VARCHAR(100) UNIQUE,
+                    name VARCHAR(255),
+                    role VARCHAR(255),
+                    email VARCHAR(255),
+                    clearance VARCHAR(100),
+                    status VARCHAR(100),
+                    joined_date DATE
+                );
+            """)
+            
+            # Auto-seed Hermes Personal Assistant
+            cur.execute("SELECT COUNT(*) FROM employees WHERE emp_id = 'EMP-HERMES';")
+            if cur.fetchone()[0] == 0:
+                cur.execute("""
+                    INSERT INTO employees (emp_id, name, role, email, clearance, status, joined_date)
+                    VALUES ('EMP-HERMES', 'Hermes', 'Personal Assistant (AI Core)', 'hermes@ragon.co', 'FULL CONTROL (LEVEL 5)', 'Online', CURRENT_DATE);
+                """)
+                
             conn.commit()
         conn.close()
 
@@ -427,6 +451,234 @@ class RagworthOS:
             "last_update": datetime.now().strftime("%Y-%m-%d %H:%M"),
             "systems_health": "100%"
         }
+
+    def get_employees(self):
+        """Retrieves employee lists from SQL DB or fallback local employees.json."""
+        if self.is_sql_active:
+            try:
+                conn = self._get_sql_connection()
+                employees = []
+                with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                    cur.execute("SELECT * FROM employees ORDER BY id ASC;")
+                    rows = cur.fetchall()
+                    for r in rows:
+                        employees.append({
+                            "emp_id": r["emp_id"],
+                            "name": r["name"],
+                            "role": r["role"],
+                            "email": r["email"],
+                            "clearance": r["clearance"],
+                            "status": r["status"],
+                            "joined_date": str(r["joined_date"])
+                        })
+                conn.close()
+                return employees
+            except Exception as e:
+                print(f"[!] Cloud SQL Fetch Employees failed: {e}. Falling back to local...")
+
+        # Local Fallback
+        if not os.path.exists(self.employees_file):
+            # Seed local file
+            default_data = {
+                "employees": [
+                    {
+                        "emp_id": "EMP-HERMES",
+                        "name": "Hermes",
+                        "role": "Personal Assistant (AI Core)",
+                        "email": "hermes@ragon.co",
+                        "clearance": "FULL CONTROL (LEVEL 5)",
+                        "status": "Online",
+                        "joined_date": datetime.now().strftime("%Y-%m-%d")
+                    }
+                ],
+                "metadata": {
+                    "last_updated": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                    "total_employees": 1
+                }
+            }
+            try:
+                os.makedirs(os.path.dirname(self.employees_file), exist_ok=True)
+                with open(self.employees_file, "w", encoding="utf-8") as f:
+                    json.dump(default_data, f, indent=2)
+            except Exception as ex:
+                print(f"[!] Failed to seed local employees.json: {ex}")
+            return default_data["employees"]
+
+        try:
+            with open(self.employees_file, "r", encoding="utf-8") as f:
+                data = json.load(f)
+            # Failsafe check to ensure Hermes is seeded in local list if empty
+            emp_list = data.get("employees", [])
+            if not any(emp.get("emp_id") == "EMP-HERMES" for emp in emp_list):
+                emp_list.insert(0, {
+                    "emp_id": "EMP-HERMES",
+                    "name": "Hermes",
+                    "role": "Personal Assistant (AI Core)",
+                    "email": "hermes@ragon.co",
+                    "clearance": "FULL CONTROL (LEVEL 5)",
+                    "status": "Online",
+                    "joined_date": datetime.now().strftime("%Y-%m-%d")
+                })
+                data["employees"] = emp_list
+                data["metadata"]["total_employees"] = len(emp_list)
+                with open(self.employees_file, "w", encoding="utf-8") as f:
+                    json.dump(data, f, indent=2)
+            return emp_list
+        except Exception as e:
+            print(f"[!] Error loading local employees: {e}")
+            return []
+
+    def add_employee(self, name, role, email, clearance, status):
+        """Adds a new employee record."""
+        emp_id = f"EMP-{datetime.now().strftime('%M%S%f')[:6]}"
+        date = datetime.now().strftime("%Y-%m-%d")
+
+        if self.is_sql_active:
+            try:
+                conn = self._get_sql_connection()
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        INSERT INTO employees (emp_id, name, role, email, clearance, status, joined_date)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s);
+                    """, (emp_id, name, role, email, clearance, status, date))
+                    conn.commit()
+                conn.close()
+                print(f"[✔] Recorded cloud employee: {name} ({emp_id}).")
+            except Exception as e:
+                print(f"[!] Cloud SQL Add Employee failed: {e}. Writing local fallback...")
+
+        # Sync to local
+        try:
+            if os.path.exists(self.employees_file):
+                with open(self.employees_file, "r", encoding="utf-8") as f:
+                    db = json.load(f)
+            else:
+                db = {"employees": [], "metadata": {}}
+
+            # Deduplicate by email
+            existing_emails = {emp.get("email", "").lower() for emp in db.get("employees", [])}
+            if email.lower() in existing_emails:
+                print(f"[!] Employee email {email} already exists.")
+                return False
+
+            db.setdefault("employees", []).append({
+                "emp_id": emp_id,
+                "name": name,
+                "role": role,
+                "email": email,
+                "clearance": clearance,
+                "status": status,
+                "joined_date": date
+            })
+            db.setdefault("metadata", {})
+            db["metadata"]["last_updated"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+            db["metadata"]["total_employees"] = len(db["employees"])
+
+            with open(self.employees_file, "w", encoding="utf-8") as f:
+                json.dump(db, f, indent=2)
+            print(f"[✔] Recorded local employee: {name} ({emp_id}).")
+            return emp_id
+        except Exception as e:
+            print(f"[!] Error writing local employee: {e}")
+            return False
+
+    def update_employee(self, emp_id, name, role, email, clearance, status):
+        """Updates employee records (blocks changes that alter Hermes clearance/identity)."""
+        if emp_id == "EMP-HERMES":
+            # Hardcoded identity lock for sovereign AI Core
+            name = "Hermes"
+            role = "Personal Assistant (AI Core)"
+            email = "hermes@ragon.co"
+            clearance = "FULL CONTROL (LEVEL 5)"
+
+        updated = False
+        if self.is_sql_active:
+            try:
+                conn = self._get_sql_connection()
+                with conn.cursor() as cur:
+                    cur.execute("""
+                        UPDATE employees
+                        SET name = %s, role = %s, email = %s, clearance = %s, status = %s
+                        WHERE emp_id = %s;
+                    """, (name, role, email, clearance, status, emp_id))
+                    if cur.rowcount > 0:
+                        updated = True
+                    conn.commit()
+                conn.close()
+                if updated:
+                    print(f"[✔] Updated cloud employee {emp_id}.")
+            except Exception as e:
+                print(f"[!] Cloud SQL Update Employee failed: {e}. Attempting local update...")
+
+        # Local Update
+        if os.path.exists(self.employees_file):
+            try:
+                with open(self.employees_file, "r", encoding="utf-8") as f:
+                    db = json.load(f)
+                
+                local_found = False
+                for emp in db.get("employees", []):
+                    if emp.get("emp_id") == emp_id:
+                        emp["name"] = name
+                        emp["role"] = role
+                        emp["email"] = email
+                        emp["clearance"] = clearance
+                        emp["status"] = status
+                        local_found = True
+                        break
+                
+                if local_found:
+                    db["metadata"]["last_updated"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+                    with open(self.employees_file, "w", encoding="utf-8") as f:
+                        json.dump(db, f, indent=2)
+                    print(f"[✔] Updated local employee {emp_id}.")
+                    updated = True
+            except Exception as e:
+                print(f"[!] Error updating local employee: {e}")
+        return updated
+
+    def delete_employee(self, emp_id):
+        """Deletes an employee record (explicitly blocks deleting Hermes)."""
+        if emp_id == "EMP-HERMES":
+            print("[!] Security Violation: Unauthorized attempt to delete sovereign AI Core Assistant blocked.")
+            return False
+
+        deleted = False
+        if self.is_sql_active:
+            try:
+                conn = self._get_sql_connection()
+                with conn.cursor() as cur:
+                    cur.execute("DELETE FROM employees WHERE emp_id = %s;", (emp_id,))
+                    if cur.rowcount > 0:
+                        deleted = True
+                    conn.commit()
+                conn.close()
+                if deleted:
+                    print(f"[✔] Deleted cloud employee {emp_id}.")
+            except Exception as e:
+                print(f"[!] Cloud SQL Delete Employee failed: {e}. Attempting local delete...")
+
+        # Local Delete
+        if os.path.exists(self.employees_file):
+            try:
+                with open(self.employees_file, "r", encoding="utf-8") as f:
+                    db = json.load(f)
+                
+                emp_list = db.get("employees", [])
+                initial_len = len(emp_list)
+                filtered_list = [emp for emp in emp_list if emp.get("emp_id") != emp_id]
+                
+                if len(filtered_list) < initial_len:
+                    db["employees"] = filtered_list
+                    db["metadata"]["last_updated"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+                    db["metadata"]["total_employees"] = len(filtered_list)
+                    with open(self.employees_file, "w", encoding="utf-8") as f:
+                        json.dump(db, f, indent=2)
+                    print(f"[✔] Deleted local employee {emp_id}.")
+                    deleted = True
+            except Exception as e:
+                print(f"[!] Error deleting local employee: {e}")
+        return deleted
 
 if __name__ == "__main__":
     os_sys = RagworthOS()

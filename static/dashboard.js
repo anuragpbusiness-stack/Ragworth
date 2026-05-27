@@ -104,6 +104,7 @@ function subscribeFirebaseData() {
         summary: { total_revenue: 0.0, active_leads: 0, last_update: "Real-Time Cloud", systems_health: "100%" },
         leads: [],
         ledger: [],
+        employees: [],
         grid: {
             industries: [
                 "Commercial Law", "Maritime Logistics", "Boutique Real Estate", "Supply Chain Management",
@@ -144,6 +145,36 @@ function subscribeFirebaseData() {
         populateDashboard();
     }, err => {
         console.error("Firestore ledger subscription error: ", err);
+    });
+
+    // 3. Employees Snapshot (Real-time Firebase)
+    db.collection("employees").onSnapshot(snapshot => {
+        let list = [];
+        snapshot.forEach(doc => {
+            const data = doc.data();
+            data._docId = doc.id;
+            list.push(data);
+        });
+        
+        // Failsafe: if Hermes is not in Firestore yet, add it
+        if (!list.some(e => e.emp_id === "EMP-HERMES")) {
+            const hermesObj = {
+                emp_id: "EMP-HERMES",
+                name: "Hermes",
+                role: "Personal Assistant (AI Core)",
+                email: "hermes@ragon.co",
+                clearance: "FULL CONTROL (LEVEL 5)",
+                status: "Online",
+                joined_date: new Date().toISOString().slice(0, 10)
+            };
+            db.collection("employees").doc("EMP-HERMES").set(hermesObj);
+            list.unshift(hermesObj);
+        }
+        
+        dashboardData.employees = list;
+        populateDashboard();
+    }, err => {
+        console.error("Firestore employees subscription error: ", err);
     });
 }
 
@@ -238,6 +269,42 @@ function populateDashboard() {
         });
     }
     
+    // 5. Populate Corporate Personnel Registry
+    const employees = dashboardData.employees || [];
+    const empBody = document.getElementById("employees-table-body");
+    if (empBody) {
+        empBody.innerHTML = "";
+        if (employees.length === 0) {
+            empBody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: var(--text-muted);">No employees registered in corporate directories.</td></tr>`;
+        } else {
+            employees.forEach(emp => {
+                const tr = document.createElement("tr");
+                
+                const nameStyle = emp.emp_id === "EMP-HERMES" ? 'font-weight: 600; color: var(--text-gold);' : 'font-weight: 500;';
+                const nameDisplay = emp.emp_id === "EMP-HERMES" ? `<i class="fas fa-shield-halved" style="color: var(--accent); margin-right: 0.4rem;"></i> ${emp.name}` : emp.name;
+                
+                const actionBtns = emp.emp_id === "EMP-HERMES" 
+                    ? `<span style="font-size: 0.65rem; text-transform: uppercase; color: var(--accent); font-weight: bold; letter-spacing: 0.05em; padding-right: 0.5rem;"><i class="fas fa-lock"></i> SOVEREIGN SECURITY</span>`
+                    : `
+                        <button class="action-btn edit-btn" onclick="openEditEmployeeModal('${emp.emp_id}')" title="Edit Employee"><i class="fas fa-pencil-alt"></i></button>
+                        <button class="action-btn delete-btn" onclick="deleteEmployee('${emp.emp_id}')" title="Delete Employee"><i class="fas fa-trash-alt"></i></button>
+                    `;
+                    
+                tr.innerHTML = `
+                    <td style="font-family: 'Courier New', monospace; font-size: 0.75rem;">${emp.emp_id}</td>
+                    <td style="${nameStyle}">${nameDisplay}</td>
+                    <td>${emp.role}</td>
+                    <td><span class="badge ${emp.emp_id === 'EMP-HERMES' ? 'badge-priority' : 'badge-new'}" style="font-size: 0.55rem; padding: 0.2rem 0.4rem;">${emp.clearance}</span></td>
+                    <td><span class="badge badge-paid" style="border-color: ${emp.status === 'Online' ? '#6F6961' : '#8D7859'}; color: ${emp.status === 'Online' ? '#6F6961' : '#8D7859'};">${emp.status}</span></td>
+                    <td style="font-family: monospace; font-size: 0.75rem; color: var(--text-muted);">${emp.email}</td>
+                    <td>${emp.joined_date}</td>
+                    <td style="white-space: nowrap; text-align: right;">${actionBtns}</td>
+                `;
+                empBody.appendChild(tr);
+            });
+        }
+    }
+    
     // 4. Populate Scout Selectors
     const nicheSelect = document.getElementById("scout-niche");
     const locSelect = document.getElementById("scout-location");
@@ -272,6 +339,7 @@ function switchTab(tabId, element) {
     let title = "CEO Command Center";
     if (tabId === "tab-scout") title = "Prospect Scout Engine";
     else if (tabId === "tab-ledger") title = "Financial Ledger";
+    else if (tabId === "tab-employees") title = "Employees & AI Assistant Hub";
     else if (tabId === "tab-invoice") title = "Invoice Hub";
     
     document.getElementById("tab-title-display").innerText = title;
@@ -708,4 +776,249 @@ async function findFirestoreDocIdByInvoice(invoiceId) {
         console.error("Error querying Firestore: ", e);
     }
     return null;
+}
+
+// ==============================================
+// EMPLOYEES & PERSONNEL DIRECTORY PROTOCOLS
+// ==============================================
+
+// Open Add Employee Modal
+function openAddEmployeeModal() {
+    document.getElementById("emp-modal-title").innerText = "Record New Employee";
+    document.getElementById("edit-emp-id").value = "";
+    document.getElementById("emp-name").value = "";
+    document.getElementById("emp-role").value = "";
+    document.getElementById("emp-email").value = "";
+    document.getElementById("emp-clearance").value = "LEVEL 1 (VIEWER)";
+    document.getElementById("emp-status").value = "Online";
+    
+    // Allow email editing for new employees
+    document.getElementById("emp-email").disabled = false;
+    document.getElementById("emp-email").style.opacity = "1";
+    
+    document.getElementById("employee-modal").classList.add("active");
+}
+
+// Open Edit Employee Modal
+function openEditEmployeeModal(empId) {
+    if (!dashboardData || !dashboardData.employees) return;
+    
+    const emp = dashboardData.employees.find(e => e.emp_id === empId);
+    if (!emp) {
+        alert("Employee not found.");
+        return;
+    }
+    
+    document.getElementById("emp-modal-title").innerText = `Update Employee: ${emp.name}`;
+    document.getElementById("edit-emp-id").value = emp.emp_id;
+    document.getElementById("emp-name").value = emp.name;
+    document.getElementById("emp-role").value = emp.role;
+    document.getElementById("emp-email").value = emp.email;
+    document.getElementById("emp-clearance").value = emp.clearance;
+    document.getElementById("emp-status").value = emp.status;
+    
+    // Disable email editing for existing employees
+    document.getElementById("emp-email").disabled = true;
+    document.getElementById("emp-email").style.opacity = "0.5";
+    
+    document.getElementById("employee-modal").classList.add("active");
+}
+
+// Close Employee Modal
+function closeEmployeeModal() {
+    document.getElementById("employee-modal").classList.remove("active");
+}
+
+// Save Employee (Add or Edit)
+async function saveEmployee() {
+    const empId = document.getElementById("edit-emp-id").value;
+    const name = document.getElementById("emp-name").value.trim();
+    const role = document.getElementById("emp-role").value.trim();
+    const email = document.getElementById("emp-email").value.trim();
+    const clearance = document.getElementById("emp-clearance").value;
+    const statusVal = document.getElementById("emp-status").value;
+    
+    if (!name || !role || !email) {
+        alert("Please fill in Name, Role, and Email.");
+        return;
+    }
+    
+    const isEdit = empId !== "";
+    
+    // 1. Firebase Firestore Direct Sync if active
+    if (db && typeof USE_FIREBASE !== 'undefined' && USE_FIREBASE) {
+        try {
+            if (isEdit) {
+                const docRef = db.collection("employees").doc(empId);
+                await docRef.update({
+                    name: name,
+                    role: role,
+                    clearance: clearance,
+                    status: statusVal
+                });
+            } else {
+                const newId = `EMP-${Math.floor(100000 + Math.random() * 900000)}`;
+                const newEmp = {
+                    emp_id: newId,
+                    name: name,
+                    role: role,
+                    email: email,
+                    clearance: clearance,
+                    status: statusVal,
+                    joined_date: new Date().toISOString().slice(0, 10)
+                };
+                await db.collection("employees").doc(newId).set(newEmp);
+            }
+            closeEmployeeModal();
+            return;
+        } catch (e) {
+            alert("Firebase save failed: " + e.message);
+            return;
+        }
+    }
+    
+    // 2. FastAPI Backend API Write
+    try {
+        const method = isEdit ? "PUT" : "POST";
+        const url = isEdit ? `/api/employees/${empId}` : "/api/employees";
+        
+        const response = await fetch(url, {
+            method: method,
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${sessionToken}`
+            },
+            body: JSON.stringify({
+                name: name,
+                role: role,
+                email: email,
+                clearance: clearance,
+                status: statusVal
+            })
+        });
+        
+        if (response.ok) {
+            closeEmployeeModal();
+            fetchDashboardData();
+        } else {
+            const err = await response.json();
+            alert(`Failed: ${err.detail}`);
+        }
+    } catch (e) {
+        alert("Error saving registry. Server offline.");
+    }
+}
+
+// Delete Employee
+async function deleteEmployee(empId) {
+    if (empId === "EMP-HERMES") {
+        alert("Security Violation: Cannot delete sovereign AI Assistant!");
+        return;
+    }
+    
+    if (!confirm(`Are you sure you want to permanently remove employee ${empId}?`)) {
+        return;
+    }
+    
+    // 1. Firebase Direct Delete
+    if (db && typeof USE_FIREBASE !== 'undefined' && USE_FIREBASE) {
+        try {
+            await db.collection("employees").doc(empId).delete();
+            return;
+        } catch (e) {
+            alert("Firebase delete failed: " + e.message);
+            return;
+        }
+    }
+    
+    // 2. FastAPI Local/SQL Endpoint
+    try {
+        const response = await fetch(`/api/employees/${empId}`, {
+            method: "DELETE",
+            headers: {
+                "Authorization": `Bearer ${sessionToken}`
+            }
+        });
+        
+        if (response.ok) {
+            fetchDashboardData();
+        } else {
+            const err = await response.json();
+            alert(`Failed: ${err.detail}`);
+        }
+    } catch (e) {
+        alert("Error deleting employee. Server offline.");
+    }
+}
+
+// ==============================================
+// HERMES INTERACTIVE EXECUTIVE CLI TERMINAL
+// ==============================================
+
+async function sendHermesCommand() {
+    const inputEl = document.getElementById("hermes-cmd-input");
+    const cmd = inputEl.value.trim();
+    if (!cmd) return;
+    
+    inputEl.value = "";
+    
+    const terminal = document.getElementById("hermes-terminal");
+    
+    // Print input line
+    const userLine = document.createElement("div");
+    userLine.className = "terminal-line success";
+    userLine.innerText = `CEO> ${cmd}`;
+    terminal.appendChild(userLine);
+    terminal.scrollTop = terminal.scrollHeight;
+    
+    // Print immediate "Processing..." response
+    const procLine = document.createElement("div");
+    procLine.className = "terminal-line info";
+    procLine.innerText = `[${new Date().toLocaleTimeString()}] Establishing secure path... routing command...`;
+    terminal.appendChild(procLine);
+    terminal.scrollTop = terminal.scrollHeight;
+    
+    try {
+        const response = await fetch("/api/hermes/command", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${sessionToken}`
+            },
+            body: JSON.stringify({ command: cmd })
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            
+            // Premium typewriter/delay simulator
+            setTimeout(() => {
+                procLine.remove(); // Remove routing message
+                
+                const lines = data.response.split("\n");
+                lines.forEach((line, index) => {
+                    setTimeout(() => {
+                        const lineEl = document.createElement("div");
+                        lineEl.className = "terminal-line";
+                        
+                        // Parse status and highlights
+                        if (line.includes("ONLINE") || line.includes("VERIFIED") || line.includes("COMPLETE")) {
+                            lineEl.className = "terminal-line success";
+                            lineEl.style.color = "#6F6961";
+                        } else if (line.startsWith("•") || line.startsWith("CEO Instructed:")) {
+                            lineEl.className = "terminal-line info";
+                        }
+                        
+                        lineEl.innerText = line;
+                        terminal.appendChild(lineEl);
+                        terminal.scrollTop = terminal.scrollHeight;
+                    }, index * 150); // Muted micro-animation delays
+                });
+            }, 600);
+        } else {
+            procLine.innerText = `[!] SECURE COM LINK ERROR: Directives rejected by master core.`;
+        }
+    } catch (e) {
+        procLine.innerText = `[!] OFFLINE. Local AI Core stand-alone node running. type "/status" locally.`;
+    }
 }

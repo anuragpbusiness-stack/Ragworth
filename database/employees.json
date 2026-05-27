@@ -1,0 +1,17 @@
+{
+  "employees": [
+    {
+      "emp_id": "EMP-HERMES",
+      "name": "Hermes",
+      "role": "Personal Assistant (AI Core)",
+      "email": "hermes@ragon.co",
+      "clearance": "FULL CONTROL (LEVEL 5)",
+      "status": "Online",
+      "joined_date": "2026-05-27"
+    }
+  ],
+  "metadata": {
+    "last_updated": "2026-05-27 09:21",
+    "total_employees": 1
+  }
+}
