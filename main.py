@@ -16,7 +16,10 @@ sys.path.append(os.path.join(os.path.dirname(__file__), "scripts"))
 from ragworth_os import RagworthOS
 from ragworth_omniscale import OmniScale
 from ragworth_omniscout import OmniScout
+from ragworth_pipeline import RagworthPipeline
 from invoice_pdf import RagworthInvoiceGenerator
+
+pipeline = RagworthPipeline()
 
 app = FastAPI(
     title="Ragworth OS Server",
@@ -62,6 +65,16 @@ class ScoutRequest(BaseModel):
     niche: Optional[str] = None
     location: Optional[str] = None
     count: Optional[int] = 10
+
+class OmniDispatchRequest(BaseModel):
+    niche: Optional[str] = None
+    location: Optional[str] = None
+    count: Optional[int] = 8
+    callable_only: Optional[bool] = True
+
+class LeadActionRequest(BaseModel):
+    lead_id: str
+    action: str  # "followup" | "dismiss" | "confirm"
 
 class EmployeeRequest(BaseModel):
     name: str
@@ -224,45 +237,111 @@ def delete_ledger_entry(invoice_id: str, authorized: bool = Depends(verify_token
             detail=f"Failed to delete ledger entry: {str(e)}"
         )
 
-@app.post("/api/scout/omniscale")
-def run_omniscale_pulse(payload: ScoutRequest, authorized: bool = Depends(verify_token)):
+# ─── OMNI INTELLIGENCE ENGINE v3.0 — UNIFIED DISPATCH ───────────────────────
+
+@app.post("/api/omni/dispatch")
+def omni_dispatch(payload: OmniDispatchRequest, authorized: bool = Depends(verify_token)):
+    """
+    Unified two-phase intelligence dispatch:
+      Phase 1 (OmniScale): Find businesses globally, timezone-aware, with ad signals
+      Phase 2 (OmniScout): For each business, triangulate the right AI-buying contact
+    Returns enriched leads + real-time log stream.
+    """
+    logs = []
+    def collect_log(msg):
+        logs.append(msg)
+        print(msg)
+
     try:
-        engine = OmniScale()
-        leads = engine.run_pulse(
+        # Phase 1: Business Discovery
+        collect_log("[OMNI] ═══ OMNI INTELLIGENCE ENGINE v3.0 ACTIVATED ═══")
+        collect_log(f"[OMNI] Parameters: niche='{payload.niche or 'Auto'}' location='{payload.location or 'Auto'}' count={payload.count} callable_only={payload.callable_only}")
+        collect_log("[OMNI] Phase 1: OmniScale global business discovery initializing...")
+
+        scale = OmniScale()
+        businesses = scale.run_pulse(
             target_industry=payload.niche,
             target_city=payload.location,
-            count=payload.count
-        )
-        return {
-            "success": True,
-            "scouted_leads": leads,
-            "message": f"Global scan complete. Discovered {len(leads)} opportunities."
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"OmniScale pulse failed: {str(e)}"
+            count=payload.count,
+            callable_only=payload.callable_only,
+            log_fn=collect_log
         )
 
-@app.post("/api/scout/omniscout")
-def run_omniscout_hunt(payload: ScoutRequest, authorized: bool = Depends(verify_token)):
-    try:
-        engine = OmniScout()
-        leads = engine.hunt(
-            niche=payload.niche or "Boutique Law Firm",
-            location=payload.location or "London",
-            count=payload.count
-        )
+        if not businesses:
+            collect_log("[OMNI] ⚠ Phase 1 returned 0 businesses. Try adjusting niche/location or disable callable_only filter.")
+            return {"success": True, "scouted_leads": [], "logs": logs, "pipeline_stats": pipeline.get_stats()}
+
+        # Phase 2: Contact Triangulation
+        collect_log(f"[OMNI] Phase 2: OmniScout contact triangulation for {len(businesses)} businesses...")
+        scout = OmniScout()
+        enriched_leads = scout.enrich_businesses(businesses, log_fn=collect_log)
+
+        # Save to pipeline (deduplication handled inside)
+        added = pipeline.add_leads(enriched_leads)
+        collect_log(f"[OMNI] ✔ {added} new leads added to Active Pipeline (duplicates/dismissed skipped).")
+        collect_log("[OMNI] ═══ DISPATCH COMPLETE ═══")
+
         return {
             "success": True,
-            "scouted_leads": leads,
-            "message": f"OmniScout hunt complete. Captured {len(leads)} validated profiles."
+            "scouted_leads": enriched_leads,
+            "new_leads_added": added,
+            "logs": logs,
+            "pipeline_stats": pipeline.get_stats(),
+            "message": f"Omni Intelligence complete. {added} new leads in pipeline."
         }
+
     except Exception as e:
+        collect_log(f"[OMNI] ✖ Engine error: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"OmniScout hunt failed: {str(e)}"
+            detail=f"Omni dispatch failed: {str(e)}"
         )
+
+# ─── LEAD PIPELINE ACTIONS ───────────────────────────────────────────────────
+
+@app.post("/api/leads/action")
+def lead_action(payload: LeadActionRequest, authorized: bool = Depends(verify_token)):
+    """Moves a lead between pipeline stages: followup | confirm | dismiss"""
+    action = payload.action.lower().strip()
+    lead_id = payload.lead_id
+
+    if action == "followup":
+        ok = pipeline.move_to_followup(lead_id)
+        stage = "Follow Up"
+    elif action == "confirm":
+        ok = pipeline.move_to_client(lead_id)
+        stage = "Confirmed Clients"
+    elif action == "dismiss":
+        ok = pipeline.dismiss(lead_id)
+        stage = "Dismissed"
+    else:
+        raise HTTPException(status_code=400, detail=f"Unknown action: {action}")
+
+    if not ok:
+        raise HTTPException(status_code=404, detail=f"Lead ID '{lead_id}' not found in any active stage.")
+
+    return {"success": True, "message": f"Lead moved to: {stage}", "stats": pipeline.get_stats()}
+
+# ─── PIPELINE READ ENDPOINTS ─────────────────────────────────────────────────
+
+@app.get("/api/pipeline/{stage}")
+def get_pipeline(stage: str, authorized: bool = Depends(verify_token)):
+    """Returns leads for a pipeline stage: active | followup | clients"""
+    stage = stage.lower()
+    if stage == "active":
+        data = pipeline.get_active()
+    elif stage == "followup":
+        data = pipeline.get_followup()
+    elif stage == "clients":
+        data = pipeline.get_clients()
+    else:
+        raise HTTPException(status_code=400, detail=f"Unknown stage: {stage}. Use active/followup/clients.")
+
+    return {"success": True, "stage": stage, "leads": data, "count": len(data), "stats": pipeline.get_stats()}
+
+@app.get("/api/pipeline/stats/summary")
+def pipeline_stats(authorized: bool = Depends(verify_token)):
+    return {"success": True, "stats": pipeline.get_stats()}
 
 @app.get("/api/employees")
 def get_employees(authorized: bool = Depends(verify_token)):

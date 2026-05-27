@@ -329,9 +329,10 @@ function startDashboardSync() {
         subscribeFirebaseData();
     } else {
         fetchDashboardData();
-        // Poll every 10 seconds locally to keep simulated updates
         setInterval(fetchDashboardData, 10000);
     }
+    // Always load pipeline stats on startup
+    loadPipelineStats();
 }
 
 // Real-Time Firebase Listeners
@@ -702,39 +703,40 @@ async function logNewRevenue() {
     }
 }
 
-// Simulated real-time console logging
-function logTerminal(message, type = "info") {
-    const terminal = document.getElementById("scout-terminal");
-    const div = document.createElement("div");
-    div.className = `terminal-line ${type}`;
-    div.innerText = `[${new Date().toLocaleTimeString()}] ${message}`;
-    terminal.appendChild(div);
-    terminal.scrollTop = terminal.scrollHeight;
+// ==============================================
+// OMNI INTELLIGENCE ENGINE v3.0 — FRONTEND
+// ==============================================
+
+let currentPipelineView = "active";
+
+function updatePipelineStats(stats) {
+    if (!stats) return;
+    const s = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = val; };
+    s("stat-active",   stats.active   || 0);
+    s("stat-followup", stats.followup || 0);
+    s("stat-clients",  stats.clients  || 0);
 }
 
-// Dispatch Scrapers
-async function dispatchScout(mode) {
-    const niche = document.getElementById("scout-niche").value;
+async function dispatchOmniIntelligence() {
+    const niche    = document.getElementById("scout-niche").value;
     const location = document.getElementById("scout-location").value;
-    const count = parseInt(document.getElementById("scout-count").value) || 5;
-    
+    const count    = parseInt(document.getElementById("scout-count").value) || 5;
+    const callable = document.getElementById("scout-callable").checked;
+
+    const btn = document.getElementById("omni-dispatch-btn");
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i>&nbsp; SCANNING...`;
+
     document.getElementById("terminal-section").style.display = "block";
     const terminal = document.getElementById("scout-terminal");
     terminal.innerHTML = "";
-    
-    logTerminal("INITIALIZING CORE PROSPECT SEARCH ENGINE...", "success");
-    logTerminal(`MODE: ${mode.toUpperCase()} TARGET PROTOCOL ACTIVE.`, "warning");
-    logTerminal(`TARGET PARAMS: NICHE='${niche || 'Auto-Selected'}', REGION='${location || 'Auto-Selected'}', VOLUME=${count}`, "info");
-    
-    setTimeout(() => logTerminal("DISPATCHING SCRAWLER FLIGHT NODES...", "info"), 800);
-    setTimeout(() => logTerminal("BYPASSING GEOLOCATION CAPTCHA SHIELDS...", "warning"), 1600);
-    setTimeout(() => logTerminal("PARSING SEARCH DIRECTORY DORK SIGNATURES...", "info"), 2400);
-    
+
+    logTerminal("╔══ OMNI INTELLIGENCE ENGINE v3.0 ══╗", "success");
+    logTerminal(`PARAMS — niche: '${niche || 'Auto'}' · loc: '${location || 'Auto'}' · vol: ${count} · callable_only: ${callable}`, "info");
+    logTerminal("Phase 1: OmniScale global business discovery initializing...", "warning");
+
     try {
-        const endpoint = mode === "omniscale" ? "/api/scout/omniscale" : "/api/scout/omniscout";
-        
-        // Request scraper to local API (scrapers run locally)
-        const response = await fetch(endpoint, {
+        const response = await fetch("/api/omni/dispatch", {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -743,85 +745,220 @@ async function dispatchScout(mode) {
             body: JSON.stringify({
                 niche: niche || null,
                 location: location || null,
-                count: count
+                count: count,
+                callable_only: callable
             })
         });
-        
-        if (response.ok) {
-            const data = await response.json();
-            const leads = data.scouted_leads;
-            
-            setTimeout(async () => {
-                logTerminal(`CRAWLER PULSE COMPLETE. DISCOVERED ${leads.length} LEADS.`, "success");
-                
-                // If Firebase active, push found leads directly into Firebase cloud from browser
-                if (db && typeof USE_FIREBASE !== 'undefined' && USE_FIREBASE) {
-                    logTerminal("SYNCHRONIZING LEADS INTO FIREBASE REAL-TIME CLOUD...", "warning");
-                    for (let lead of leads) {
-                        try {
-                            const nameVal = lead.name || `${lead.first_name || 'Decision'} ${lead.last_name || 'Maker'}`.trim();
-                            await db.collection("leads").doc(lead.company.replace(/\//g, "-").toLowerCase()).set({
-                                name: nameVal,
-                                company: lead.company,
-                                title: lead.title || "Owner/Partner",
-                                hq: lead.location || lead.hq || "Unknown",
-                                niche: lead.niche || "Target Profile",
-                                email: lead.email || `contact@${lead.domain || 'company.com'}`,
-                                website: lead.website || `https://${lead.domain || ''}`,
-                                linkedin: lead.linkedin || "",
-                                potential_value: lead.potential_value || "$15,000+",
-                                status: lead.status || "Scouted",
-                                source: lead.source || "Scout",
-                                confidence: lead.confidence || lead.intelligence_score || 0.5,
-                                pain_point: lead.pain_point || lead.pain_points || "Manual business vulnerabilities",
-                                added_on: new Date().toISOString().slice(0, 10)
-                            }, { merge: true });
-                        } catch (e) {
-                            console.error("Firebase lead add error: ", e);
-                        }
-                    }
-                    logTerminal("FIREBASE CLOUD WRITE COMPLETE.", "success");
-                } else {
-                    logTerminal("DEDUPLICATING LOCAL PIPELINES...", "info");
-                    logTerminal("MERGING RECORDS INTO DATABASE (leads.json)...", "success");
-                }
-                
-                displayScoutedLeads(leads);
-                if (!db || !USE_FIREBASE) fetchDashboardData();
-            }, 3200);
+
+        const data = await response.json();
+
+        // Stream backend logs into terminal
+        if (data.logs && Array.isArray(data.logs)) {
+            for (const line of data.logs) {
+                const type = line.includes("✔") || line.includes("COMPLETE") ? "success"
+                           : line.includes("⚠") || line.includes("✖") ? "warning"
+                           : "info";
+                logTerminal(line.replace(/^\[.*?\]\s*/, ""), type);
+            }
+        }
+
+        if (response.ok && data.success) {
+            const leads = data.scouted_leads || [];
+            logTerminal(`╚══ DISPATCH COMPLETE — ${leads.length} leads enriched · ${data.new_leads_added || 0} new in pipeline ══╝`, "success");
+            updatePipelineStats(data.pipeline_stats);
+            // Switch to active view and render
+            loadPipelineView("active");
         } else {
-            const err = await response.json();
-            setTimeout(() => logTerminal(`[!] CRAWLER ERROR: ${err.detail}`, "warning"), 3200);
+            logTerminal(`✖ ERROR: ${data.detail || "Dispatch failed."}`, "warning");
         }
     } catch (e) {
-        setTimeout(() => logTerminal("[!] CRAWLER ENGINE CONNECTION FAILURE.", "warning"), 3200);
+        logTerminal("✖ CONNECTION ERROR — Is the server running?", "warning");
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fas fa-satellite-dish"></i>&nbsp; DISPATCH OMNI INTELLIGENCE`;
     }
 }
 
-// Display scouted results in sub-table
-function displayScoutedLeads(leads) {
-    const panel = document.getElementById("newly-scouted-panel");
-    panel.style.display = "block";
-    
-    const tbody = document.getElementById("scouted-results-table");
-    tbody.innerHTML = "";
-    
-    if (leads.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: var(--text-muted);">Scout finished but zero opportunities met quality debt criteria.</td></tr>`;
+// Load a pipeline stage view (active / followup / clients)
+async function loadPipelineView(stage) {
+    currentPipelineView = stage;
+
+    // Update sub-tab active states
+    ["active", "followup", "clients"].forEach(s => {
+        const btn = document.getElementById(`ptab-${s}`);
+        if (btn) btn.classList.toggle("active", s === stage);
+    });
+
+    try {
+        const response = await fetch(`/api/pipeline/${stage}`, {
+            headers: { "Authorization": `Bearer ${sessionToken}` }
+        });
+        const data = await response.json();
+        if (data.success) {
+            updatePipelineStats(data.stats);
+            renderLeadCards(data.leads || [], stage);
+        }
+    } catch (e) {
+        console.error("Pipeline load error:", e);
+    }
+}
+
+// Render lead cards grid
+function renderLeadCards(leads, stage) {
+    const empty = document.getElementById("lead-cards-empty");
+    const grid  = document.getElementById("lead-cards-grid");
+
+    if (!leads || leads.length === 0) {
+        empty.style.display = "block";
+        const stageLabels = { active: "ACTIVE PIPELINE", followup: "FOLLOW UP LIST", clients: "CONFIRMED CLIENTS" };
+        empty.innerHTML = `${stageLabels[stage] || stage.toUpperCase()} EMPTY`;
+        grid.style.display = "none";
         return;
     }
-    
+
+    empty.style.display = "none";
+    grid.style.display  = "grid";
+    grid.innerHTML = "";
+
     leads.forEach(lead => {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-            <td style="font-weight: 500;">${lead.company}</td>
-            <td><a href="${lead.website}" target="_blank" style="color: var(--text-muted); text-decoration: none;"><i class="fas fa-external-link-alt" style="margin-right: 0.3rem;"></i> ${lead.domain || 'website'}</a></td>
-            <td style="font-size: 0.75rem;">${lead.pain_points || lead.pain_point || lead.niche}</td>
-            <td style="font-weight: bold; color: var(--accent);">${lead.intelligence_score || lead.confidence}</td>
-            <td><i class="fas fa-map-marker-alt" style="color: var(--text-muted); margin-right: 0.3rem;"></i> ${lead.location}</td>
+        const card = document.createElement("div");
+        card.className = "lead-card";
+        card.setAttribute("data-id", lead.id);
+
+        const score = parseFloat(lead.intelligence_score || 0);
+        const scorePct = Math.round(score * 100);
+        const scoreColor = scorePct >= 70 ? "#c9a84c" : scorePct >= 45 ? "#e0a05c" : "#6F6961";
+
+        const callable = lead.is_callable_now;
+        const callBadge = callable
+            ? `<span class="tz-badge tz-open">🟢 OPEN ${lead.local_time_now || ""}</span>`
+            : `<span class="tz-badge tz-closed">🔴 AFTER HOURS ${lead.local_time_now || ""}</span>`;
+
+        const services = Array.isArray(lead.services_needed) ? lead.services_needed : (lead.services_needed || "").split(",");
+        const serviceChips = services.map(s => s.trim()).filter(Boolean)
+            .map(s => `<span class="service-chip">${s}</span>`).join("");
+
+        const adSignal = lead.recent_ad_signal
+            ? `<div class="lead-ad-signal">📡 ${lead.recent_ad_signal}</div>` : "";
+
+        const sources = Array.isArray(lead.sources) ? lead.sources : [];
+        const sourceLinks = sources.slice(0, 4).map(src =>
+            `<a href="${src.url}" target="_blank" class="source-link" title="${src.label}">
+                <i class="fas fa-external-link-alt"></i> ${src.label.substring(0, 30)}
+            </a>`
+        ).join("");
+
+        const contactSection = lead.contact_name && lead.contact_name !== "Decision Maker"
+            ? `<div class="lead-contact">
+                <div class="contact-name">${lead.contact_name}</div>
+                <div class="contact-title">${lead.contact_title || ""}</div>
+                <div class="contact-email"><i class="fas fa-envelope"></i> ${lead.contact_email || ""}</div>
+                ${lead.contact_linkedin ? `<a href="${lead.contact_linkedin}" target="_blank" class="contact-linkedin"><i class="fab fa-linkedin"></i> LinkedIn Profile</a>` : ""}
+               </div>`
+            : `<div class="lead-contact muted"><i class="fas fa-user-circle"></i> Contact triangulation incomplete</div>`;
+
+        // Action buttons depending on current stage
+        let actionBtns = "";
+        if (stage === "active") {
+            actionBtns = `
+                <button class="action-btn btn-followup" onclick="leadAction('${lead.id}', 'followup')"><i class="fas fa-bookmark"></i> FOLLOW UP</button>
+                <button class="action-btn btn-dismiss"  onclick="leadAction('${lead.id}', 'dismiss')">NOT NEEDED</button>
+                <button class="action-btn btn-confirm"  onclick="leadAction('${lead.id}', 'confirm')"><i class="fas fa-check"></i> CONFIRMED</button>
+            `;
+        } else if (stage === "followup") {
+            actionBtns = `
+                <button class="action-btn btn-confirm"  onclick="leadAction('${lead.id}', 'confirm')"><i class="fas fa-check"></i> CONFIRMED</button>
+                <button class="action-btn btn-dismiss"  onclick="leadAction('${lead.id}', 'dismiss')">NOT NEEDED</button>
+            `;
+        } else if (stage === "clients") {
+            actionBtns = `<span style="color:var(--accent);font-size:0.65rem;font-family:monospace;">✔ ACTIVE CLIENT</span>`;
+        }
+
+        card.innerHTML = `
+            <div class="lead-card-header">
+                <div>
+                    <div class="lead-company">${lead.company}</div>
+                    <div class="lead-meta">
+                        <i class="fas fa-globe" style="color:var(--text-muted);margin-right:0.3rem;"></i>
+                        <a href="${lead.website || '#'}" target="_blank" class="lead-website">${lead.domain || lead.website || "—"}</a>
+                        <span style="margin:0 0.4rem;color:var(--border)">·</span>
+                        <i class="fas fa-map-marker-alt" style="color:var(--text-muted);margin-right:0.3rem;"></i>
+                        <span style="color:var(--text-muted)">${lead.location || "—"}</span>
+                    </div>
+                </div>
+                <div style="text-align:right;flex-shrink:0;">
+                    ${callBadge}
+                    <div class="lead-score" style="color:${scoreColor};">${scorePct}<span style="font-size:0.55rem;">% FIT</span></div>
+                </div>
+            </div>
+            ${contactSection}
+            <div class="lead-services">${serviceChips || '<span class="service-chip">General AI Services</span>'}</div>
+            ${adSignal}
+            <div class="lead-sources">${sourceLinks || '<span style="color:var(--text-muted);font-size:0.65rem;">No sources recorded</span>'}</div>
+            <div class="lead-actions">${actionBtns}</div>
         `;
-        tbody.appendChild(tr);
+
+        grid.appendChild(card);
     });
+}
+
+// Perform a lead action (followup / dismiss / confirm)
+async function leadAction(leadId, action) {
+    const card = document.querySelector(`.lead-card[data-id="${leadId}"]`);
+    if (card) {
+        card.style.opacity = "0.4";
+        card.style.pointerEvents = "none";
+    }
+
+    try {
+        const response = await fetch("/api/leads/action", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${sessionToken}`
+            },
+            body: JSON.stringify({ lead_id: leadId, action: action })
+        });
+        const data = await response.json();
+        if (data.success) {
+            updatePipelineStats(data.stats);
+            // Remove card with animation
+            if (card) {
+                card.style.transform = "scale(0.95)";
+                card.style.transition = "all 0.3s ease";
+                setTimeout(() => {
+                    card.remove();
+                    // Check if grid is now empty
+                    const grid = document.getElementById("lead-cards-grid");
+                    if (grid && grid.children.length === 0) {
+                        grid.style.display = "none";
+                        document.getElementById("lead-cards-empty").style.display = "block";
+                    }
+                }, 300);
+            }
+        } else {
+            if (card) { card.style.opacity = "1"; card.style.pointerEvents = "auto"; }
+        }
+    } catch (e) {
+        console.error("Lead action error:", e);
+        if (card) { card.style.opacity = "1"; card.style.pointerEvents = "auto"; }
+    }
+}
+
+// Load pipeline stats on startup
+async function loadPipelineStats() {
+    try {
+        const response = await fetch("/api/pipeline/stats/summary", {
+            headers: { "Authorization": `Bearer ${sessionToken}` }
+        });
+        const data = await response.json();
+        if (data.success) updatePipelineStats(data.stats);
+    } catch (e) { /* silent */ }
+}
+
+// Keep backward compatibility alias
+async function dispatchScout(mode) {
+    dispatchOmniIntelligence();
 }
 
 // Invoice preview card dynamic synchronization
