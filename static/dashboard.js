@@ -5,6 +5,164 @@ let db = null; // Firebase Firestore instance
 let currentCurrency = localStorage.getItem('ragworth_currency') || "USD";
 let globalRates = { "USD": 1.0, "INR": 83.5, "EUR": 0.92, "GBP": 0.79, "AED": 3.67, "JPY": 155.0, "CAD": 1.37, "AUD": 1.50 };
 
+// ==============================================
+// UNIVERSAL CURRENCY INPUT RESOLVER ENGINE
+// ==============================================
+// Maps any human input (words, symbols, short codes) → ISO 4217 code → USD
+
+const CURRENCY_ALIAS_MAP = {
+    // US Dollar
+    "$": "USD", "usd": "USD", "dollar": "USD", "dollars": "USD", "us dollar": "USD", "us dollars": "USD", "buck": "USD", "bucks": "USD",
+    // Indian Rupee
+    "₹": "INR", "inr": "INR", "rupee": "INR", "rupees": "INR", "indian rupee": "INR", "rs": "INR", "re": "INR",
+    // Euro
+    "€": "EUR", "eur": "EUR", "euro": "EUR", "euros": "EUR",
+    // British Pound
+    "£": "GBP", "gbp": "GBP", "pound": "GBP", "pounds": "GBP", "sterling": "GBP", "quid": "GBP",
+    // UAE Dirham
+    "د.إ": "AED", "aed": "AED", "dirham": "AED", "dirhams": "AED", "dhs": "AED", "dh": "AED",
+    // Japanese Yen
+    "¥": "JPY", "jpy": "JPY", "yen": "JPY",
+    // Chinese Yuan
+    "cny": "CNY", "yuan": "CNY", "rmb": "CNY", "renminbi": "CNY",
+    // Canadian Dollar
+    "cad": "CAD", "canadian dollar": "CAD", "canadian dollars": "CAD", "c$": "CAD", "ca$": "CAD",
+    // Australian Dollar
+    "aud": "AUD", "australian dollar": "AUD", "australian dollars": "AUD", "a$": "AUD",
+    // Swiss Franc
+    "chf": "CHF", "franc": "CHF", "francs": "CHF", "swiss franc": "CHF",
+    // Singapore Dollar
+    "sgd": "SGD", "singapore dollar": "SGD", "s$": "SGD",
+    // Hong Kong Dollar
+    "hkd": "HKD", "hong kong dollar": "HKD", "hk$": "HKD",
+    // South Korean Won
+    "krw": "KRW", "won": "KRW", "₩": "KRW",
+    // Saudi Riyal
+    "sar": "SAR", "riyal": "SAR", "riyals": "SAR", "saudi riyal": "SAR",
+    // Brazilian Real
+    "brl": "BRL", "real": "BRL", "reais": "BRL", "r$": "BRL",
+    // Mexican Peso
+    "mxn": "MXN", "mexican peso": "MXN", "peso": "MXN", "pesos": "MXN",
+    // Russian Ruble
+    "rub": "RUB", "ruble": "RUB", "rubles": "RUB", "₽": "RUB",
+    // Turkish Lira
+    "try": "TRY", "lira": "TRY", "liras": "TRY", "₺": "TRY",
+    // South African Rand
+    "zar": "ZAR", "rand": "ZAR",
+    // Nigerian Naira
+    "ngn": "NGN", "naira": "NGN", "₦": "NGN",
+    // Pakistani Rupee
+    "pkr": "PKR", "pakistani rupee": "PKR",
+    // Bangladeshi Taka
+    "bdt": "BDT", "taka": "BDT", "৳": "BDT",
+    // Indonesian Rupiah
+    "idr": "IDR", "rupiah": "IDR", "rp": "IDR",
+    // Thai Baht
+    "thb": "THB", "baht": "THB", "฿": "THB",
+    // Malaysian Ringgit
+    "myr": "MYR", "ringgit": "MYR", "rm": "MYR",
+    // Philippine Peso
+    "php": "PHP", "philippine peso": "PHP", "₱": "PHP",
+    // Vietnamese Dong
+    "vnd": "VND", "dong": "VND", "₫": "VND",
+    // Egyptian Pound
+    "egp": "EGP", "egyptian pound": "EGP",
+    // Ukrainian Hryvnia
+    "uah": "UAH", "hryvnia": "UAH", "₴": "UAH",
+    // Czech Koruna
+    "czk": "CZK", "koruna": "CZK",
+    // Polish Zloty
+    "pln": "PLN", "zloty": "PLN", "zł": "PLN",
+    // Swedish Krona
+    "sek": "SEK", "krona": "SEK", "kronor": "SEK",
+    // Norwegian Krone
+    "nok": "NOK", "krone": "NOK", "kr": "NOK",
+    // Danish Krone
+    "dkk": "DKK",
+    // Israeli Shekel
+    "ils": "ILS", "shekel": "ILS", "shekels": "ILS", "₪": "ILS",
+    // Argentine Peso
+    "ars": "ARS", "argentine peso": "ARS",
+    // Colombian Peso
+    "cop": "COP", "colombian peso": "COP",
+    // Chilean Peso
+    "clp": "CLP", "chilean peso": "CLP",
+    // New Zealand Dollar
+    "nzd": "NZD", "new zealand dollar": "NZD", "nz$": "NZD",
+    // Qatari Riyal
+    "qar": "QAR", "qatari riyal": "QAR",
+    // Kuwaiti Dinar
+    "kwd": "KWD", "dinar": "KWD", "dinars": "KWD",
+};
+
+/**
+ * Parses a free-text currency input into { amount (number), currency (ISO code), usd (number), label (string) }
+ * Accepts formats: "500 inr", "₹500", "500 rupees", "€200", "2000 dollars", "$1500", "15000yen", "100 GBP"
+ * Returns null if unparseable.
+ */
+function parseCurrencyInput(rawInput) {
+    if (!rawInput || !rawInput.trim()) return null;
+    const str = rawInput.trim();
+
+    // --- Step 1: Extract numeric amount and currency text ---
+    // Patterns: symbol+number, number+symbol, number+space+text, text+number
+    // e.g.  "₹500", "$1,200.50", "500 inr", "500 rupees", "€ 200", "15000yen"
+    let amount = null;
+    let currencyText = "";
+
+    // Try: symbol/text prefix + number  ("₹500", "€200", "$1,500")
+    const prefixMatch = str.match(/^([^\d\s,.-]+)\s*([\d,]+(?:\.\d+)?)$/);
+    if (prefixMatch) {
+        currencyText = prefixMatch[1].trim();
+        amount = parseFloat(prefixMatch[2].replace(/,/g, ""));
+    }
+
+    // Try: number + suffix text  ("500 inr", "500 rupees", "15000yen", "200 euros")
+    if (amount === null) {
+        const suffixMatch = str.match(/^([\d,]+(?:\.\d+)?)\s*([^\d\s,.]*)$/);
+        if (suffixMatch) {
+            amount = parseFloat(suffixMatch[1].replace(/,/g, ""));
+            currencyText = suffixMatch[2].trim();
+        }
+    }
+
+    // Fallback: pure number = assume USD
+    if (amount === null) {
+        const pureNum = parseFloat(str.replace(/,/g, ""));
+        if (!isNaN(pureNum)) {
+            amount = pureNum;
+            currencyText = "";
+        }
+    }
+
+    if (amount === null || isNaN(amount) || amount <= 0) return null;
+
+    // --- Step 2: Resolve currency text → ISO code ---
+    let isoCode = "USD"; // default
+    if (currencyText) {
+        const key = currencyText.toLowerCase();
+        // Direct alias lookup
+        if (CURRENCY_ALIAS_MAP[key]) {
+            isoCode = CURRENCY_ALIAS_MAP[key];
+        } else if (currencyText.length === 3 && /^[a-zA-Z]+$/.test(currencyText)) {
+            // Treat 3-letter codes as ISO directly (e.g. "CHF", "SGD")
+            isoCode = currencyText.toUpperCase();
+        } else {
+            // Partial word match — find first alias containing the key
+            const keys = Object.keys(CURRENCY_ALIAS_MAP);
+            const partial = keys.find(k => k.includes(key) || key.includes(k));
+            if (partial) isoCode = CURRENCY_ALIAS_MAP[partial];
+        }
+    }
+
+    // --- Step 3: Convert to USD using live rates ---
+    // globalRates is { CODE: rate_per_usd }, so USD = amount / rate
+    const rate = globalRates[isoCode] || null;
+    const usd = rate ? amount / rate : null;
+
+    return { amount, currency: isoCode, usd, rate, label: `${amount.toLocaleString()} ${isoCode}` };
+}
+
 // Dynamic Multi-Currency Conversion Helpers
 function convertCurrency(amountUsd, targetCurrency) {
     const usdAmount = parseFloat(amountUsd || 0.0);
@@ -40,17 +198,29 @@ function updateLogAmountHelper() {
     const amountInput = document.getElementById("log-amount");
     const helperEl = document.getElementById("log-amount-inr-helper");
     if (!amountInput || !helperEl) return;
-    
-    const amountVal = parseFloat(amountInput.value);
-    if (isNaN(amountVal) || amountVal <= 0) {
-        helperEl.style.display = "none";
+
+    const raw = amountInput.value.trim();
+    if (!raw) { helperEl.style.display = "none"; return; }
+
+    const parsed = parseCurrencyInput(raw);
+    if (!parsed) {
+        helperEl.style.display = "block";
+        helperEl.style.color = "#e05c5c";
+        helperEl.innerText = "⚠ Could not parse currency. Try: '500 inr', '€200', '1500 dollars'";
         return;
     }
-    
-    const converted = convertCurrency(amountVal, currentCurrency);
-    const symbol = getCurrencySymbol(currentCurrency);
+
     helperEl.style.display = "block";
-    helperEl.innerText = `Converted Inflow: ${symbol}${converted.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
+    if (parsed.usd !== null) {
+        const displayConverted = convertCurrency(parsed.usd, currentCurrency);
+        const symbol = getCurrencySymbol(currentCurrency);
+        const usdNote = parsed.currency !== "USD" ? ` = $${parsed.usd.toFixed(2)} USD` : "";
+        helperEl.style.color = "var(--accent)";
+        helperEl.innerText = `✓ ${parsed.label}${usdNote}  →  ${symbol}${displayConverted.toLocaleString('en-US', { minimumFractionDigits: 2 })} ${currentCurrency}`;
+    } else {
+        helperEl.style.color = "#e0a05c";
+        helperEl.innerText = `✓ Detected ${parsed.currency} — rate not in cache, will store as-is in USD`;
+    }
 }
 
 function formatLeadPotential(valStr) {
@@ -444,12 +614,28 @@ function switchTab(tabId, element) {
 // Log manual revenue
 async function logNewRevenue() {
     const client = document.getElementById("log-client").value.trim();
-    const amount = parseFloat(document.getElementById("log-amount").value);
+    const rawAmountInput = document.getElementById("log-amount").value.trim();
     const service = document.getElementById("log-service").value.trim();
     const successEl = document.getElementById("revenue-log-success");
-    
-    if (!client || isNaN(amount) || !service) {
+
+    if (!client || !rawAmountInput || !service) {
         alert("Please specify Client Name, Amount, and Service.");
+        return;
+    }
+
+    // Parse universal currency input → USD
+    const parsed = parseCurrencyInput(rawAmountInput);
+    if (!parsed) {
+        alert("Could not parse the amount. Try formats like: '500 inr', '€200', '$1500', '2000 rupees', '15000 yen'");
+        return;
+    }
+    // Use converted USD if available, otherwise use raw amount (assume USD)
+    const amount = parsed.usd !== null ? parseFloat(parsed.usd.toFixed(2)) : parsed.amount;
+    const originalCurrencyNote = parsed.currency !== "USD"
+        ? `Original: ${parsed.label} @ rate ${parsed.rate}` : "";
+
+    if (isNaN(amount) || amount <= 0) {
+        alert("Invalid amount. Please enter a positive number with a currency (e.g. '500 inr', '€200').");
         return;
     }
 
