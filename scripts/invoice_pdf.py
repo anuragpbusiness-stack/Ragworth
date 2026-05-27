@@ -242,5 +242,5 @@ class RagworthInvoiceGenerator:
         
         # Draw document
         doc.build(story)
-        print(f"[✔] ReportLab generated pristine invoice: {filepath}")
+        print(f"[OK] ReportLab generated pristine invoice: {filepath}")
         return filepath

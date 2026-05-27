@@ -101,7 +101,7 @@ def verify_token(authorization: Optional[str] = Header(None)):
 @app.post("/api/auth")
 def authenticate_executive(payload: AuthRequest):
     if payload.key == AUTH_KEY:
-        print("[✔] Auth successful for executive session.")
+        print("[OK] Auth successful for executive session.")
         return {"success": True, "token": SESSION_TOKEN}
     else:
         print(f"[!] Access attempt blocked with key: {payload.key}")

@@ -31,7 +31,7 @@ class RagworthOS:
                 # Test connection and initialize tables
                 self._init_sql_tables()
                 self.is_sql_active = True
-                print("[✔] Persistent Cloud SQL Database Connected.")
+                print("[OK] Persistent Cloud SQL Database Connected.")
             except Exception as e:
                 print(f"[!] Warning: Failed to connect to SQL Database: {e}. Falling back to Local Files.")
                 self.is_sql_active = False
@@ -127,7 +127,7 @@ class RagworthOS:
                     """, (date, invoice_id, client_name, service_type, amount_usd, "Paid", "Wire Transfer", "N/A", notes))
                     conn.commit()
                 conn.close()
-                print(f"[✔] Recorded ${amount_usd:.2f} cloud revenue from {client_name}.")
+                print(f"[OK] Recorded ${amount_usd:.2f} cloud revenue from {client_name}.")
                 return invoice_id
             except Exception as e:
                 print(f"[!] Cloud SQL Log Revenue failed: {e}. Attempting local write...")
@@ -143,7 +143,7 @@ class RagworthOS:
                 writer.writerow(["Date","Invoice_ID","Client_Name","Service_Type","Amount_USD","Status","Payment_Method","Tax_ID","Notes"])
             writer.writerow(row)
             
-        print(f"[✔] Recorded ${amount_usd:.2f} local revenue from {client_name}.")
+        print(f"[OK] Recorded ${amount_usd:.2f} local revenue from {client_name}.")
         return invoice_id
 
     def get_leads(self):
@@ -241,7 +241,7 @@ class RagworthOS:
                     conn.commit()
                 conn.close()
                 if deleted:
-                    print(f"[✔] Deleted cloud ledger entry {invoice_id}.")
+                    print(f"[OK] Deleted cloud ledger entry {invoice_id}.")
             except Exception as e:
                 print(f"[!] Cloud SQL Delete Ledger failed: {e}. Attempting local delete...")
 
@@ -269,7 +269,7 @@ class RagworthOS:
                         if headers:
                             writer.writerow(headers)
                         writer.writerows(updated_rows)
-                    print(f"[✔] Deleted local ledger entry {invoice_id}.")
+                    print(f"[OK] Deleted local ledger entry {invoice_id}.")
                     deleted = True
             except Exception as e:
                 print(f"[!] Error updating local ledger CSV for delete: {e}")
@@ -300,7 +300,7 @@ class RagworthOS:
                         conn.commit()
                 conn.close()
                 if updated:
-                    print(f"[✔] Updated cloud ledger entry {invoice_id}.")
+                    print(f"[OK] Updated cloud ledger entry {invoice_id}.")
             except Exception as e:
                 print(f"[!] Cloud SQL Update Ledger failed: {e}. Attempting local update...")
 
@@ -344,7 +344,7 @@ class RagworthOS:
                         if headers:
                             writer.writerow(headers)
                         writer.writerows(updated_rows)
-                    print(f"[✔] Updated local ledger entry {invoice_id}.")
+                    print(f"[OK] Updated local ledger entry {invoice_id}.")
                     updated = True
             except Exception as e:
                 print(f"[!] Error updating local ledger CSV for update: {e}")
@@ -384,7 +384,7 @@ class RagworthOS:
                         added += cur.rowcount
                     conn.commit()
                 conn.close()
-                print(f"[✔] Merged {added} new leads into Cloud SQL database.")
+                print(f"[OK] Merged {added} new leads into Cloud SQL database.")
                 return added
             except Exception as e:
                 print(f"[!] Cloud SQL Merge Leads failed: {e}. Falling back to local...")
@@ -428,7 +428,7 @@ class RagworthOS:
             
             with open(self.leads_file, "w", encoding="utf-8") as f:
                 json.dump(db, f, indent=2)
-            print(f"[✔] Merged {added} new leads into local leads.json database.")
+            print(f"[OK] Merged {added} new leads into local leads.json database.")
             return added
         except Exception as e:
             print(f"[!] Error loading/saving local database leads: {e}")
@@ -543,7 +543,7 @@ class RagworthOS:
                     """, (emp_id, name, role, email, clearance, status, date))
                     conn.commit()
                 conn.close()
-                print(f"[✔] Recorded cloud employee: {name} ({emp_id}).")
+                print(f"[OK] Recorded cloud employee: {name} ({emp_id}).")
             except Exception as e:
                 print(f"[!] Cloud SQL Add Employee failed: {e}. Writing local fallback...")
 
@@ -576,7 +576,7 @@ class RagworthOS:
 
             with open(self.employees_file, "w", encoding="utf-8") as f:
                 json.dump(db, f, indent=2)
-            print(f"[✔] Recorded local employee: {name} ({emp_id}).")
+            print(f"[OK] Recorded local employee: {name} ({emp_id}).")
             return emp_id
         except Exception as e:
             print(f"[!] Error writing local employee: {e}")
@@ -606,7 +606,7 @@ class RagworthOS:
                     conn.commit()
                 conn.close()
                 if updated:
-                    print(f"[✔] Updated cloud employee {emp_id}.")
+                    print(f"[OK] Updated cloud employee {emp_id}.")
             except Exception as e:
                 print(f"[!] Cloud SQL Update Employee failed: {e}. Attempting local update...")
 
@@ -631,7 +631,7 @@ class RagworthOS:
                     db["metadata"]["last_updated"] = datetime.now().strftime("%Y-%m-%d %H:%M")
                     with open(self.employees_file, "w", encoding="utf-8") as f:
                         json.dump(db, f, indent=2)
-                    print(f"[✔] Updated local employee {emp_id}.")
+                    print(f"[OK] Updated local employee {emp_id}.")
                     updated = True
             except Exception as e:
                 print(f"[!] Error updating local employee: {e}")
@@ -654,7 +654,7 @@ class RagworthOS:
                     conn.commit()
                 conn.close()
                 if deleted:
-                    print(f"[✔] Deleted cloud employee {emp_id}.")
+                    print(f"[OK] Deleted cloud employee {emp_id}.")
             except Exception as e:
                 print(f"[!] Cloud SQL Delete Employee failed: {e}. Attempting local delete...")
 
@@ -674,7 +674,7 @@ class RagworthOS:
                     db["metadata"]["total_employees"] = len(filtered_list)
                     with open(self.employees_file, "w", encoding="utf-8") as f:
                         json.dump(db, f, indent=2)
-                    print(f"[✔] Deleted local employee {emp_id}.")
+                    print(f"[OK] Deleted local employee {emp_id}.")
                     deleted = True
             except Exception as e:
                 print(f"[!] Error deleting local employee: {e}")
